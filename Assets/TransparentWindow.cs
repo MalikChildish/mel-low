@@ -14,6 +14,7 @@ public class TransparentWindow : MonoBehaviour
     [DllImport("user32.dll")] public static extern int BringWindowToTop(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
     [DllImport("Dwmapi.dll")] public static extern uint DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS margins);
+    [DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);
 
     static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     const uint SWP_NOSIZE = 0x0001;
@@ -33,7 +34,10 @@ public class TransparentWindow : MonoBehaviour
         DwmExtendFrameIntoClientArea(hWnd, ref margins);
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, (IntPtr)WS_EX_LAYERED);
         BringWindowToTop(hWnd);
-        SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+
+        int screenW = GetSystemMetrics(0);
+        int screenH = GetSystemMetrics(1);
+        SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, screenW, screenH, 0);
 #endif
     }
 }
