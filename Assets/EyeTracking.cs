@@ -7,11 +7,13 @@ public class EyeTracking : MonoBehaviour
     public Transform rightEye;
     public Transform leftPupil;
     public Transform rightPupil;
+    public Transform blink;
     [Range(1f, 20f)]  public float smoothSpeed = 8f;
     [Range(0f, 0.1f)] public float maxOffset   = 0.03f;
 
     Vector3 _leftInitialWorld;
     Vector3 _rightInitialWorld;
+    Vector3 _blinkInitialWorld;
     bool _initialized;
 
     void Update()
@@ -20,6 +22,7 @@ public class EyeTracking : MonoBehaviour
         {
             if (leftPupil)  _leftInitialWorld  = leftPupil.position;
             if (rightPupil) _rightInitialWorld = rightPupil.position;
+            if (blink)      _blinkInitialWorld = blink.position;
             _initialized = true;
             return;
         }
@@ -42,6 +45,11 @@ public class EyeTracking : MonoBehaviour
         {
             Vector3 target = new Vector3(_rightInitialWorld.x + offsetX, _rightInitialWorld.y + offsetY, _rightInitialWorld.z);
             rightPupil.position = Vector3.Lerp(rightPupil.position, target, Time.deltaTime * smoothSpeed);
+        }
+        if (blink)
+        {
+            Vector3 target = new Vector3(_blinkInitialWorld.x + offsetX, _blinkInitialWorld.y + offsetY, _blinkInitialWorld.z);
+            blink.position = Vector3.Lerp(blink.position, target, Time.deltaTime * smoothSpeed);
         }
     }
 

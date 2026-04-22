@@ -578,6 +578,7 @@ GameObject:
   - component: {fileID: 543450653218016766}
   - component: {fileID: 89593946}
   - component: {fileID: 919132149501908805}
+  - component: {fileID: 919132149501908806}
   m_Layer: 0
   m_Name: Mellow
   m_TagString: Untagged
@@ -601,8 +602,27 @@ MonoBehaviour:
   rightEye: {fileID: 2477313058054457141}
   leftPupil: {fileID: 4790074512965834502}
   rightPupil: {fileID: 6936383132004869708}
+  blink: {fileID: 0}
   smoothSpeed: 8
   maxOffset: 0.04
+--- !u!114 &919132149501908806
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 919132149501908804}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b00a9daf8912c84d84c3fde305cdefc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlinkController
+  leftEye: {fileID: 4717927567288797400}
+  rightEye: {fileID: 1349176205710505902}
+  blink: {fileID: 3693047585099318057}
+  minBlinkInterval: 10
+  maxBlinkInterval: 18
+  blinkDuration: 0.08
 --- !u!33 &1190143895528150593
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -1211,9 +1231,9 @@ Transform:
   m_GameObject: {fileID: 3693047585099318057}
   serializedVersion: 2
   m_LocalRotation: {x: 0.69939345, y: -0.6978251, z: 0.008559636, w: -0.15432325}
-  m_LocalPosition: {x: -0.06957152, y: 0.2812975, z: 0.13790034}
-  m_LocalScale: {x: 0.99999994, y: 0.99999994, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalPosition: {x: -0.0852, y: 0.2797, z: 0.1439}
+  m_LocalScale: {x: 1.03, y: 1.03, z: 1.03}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 543450653218016766}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
