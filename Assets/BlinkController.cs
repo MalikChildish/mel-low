@@ -43,6 +43,11 @@ public class BlinkController : MonoBehaviour
         _blinking = false;
     }
 
+    void OnMouseDown()
+    {
+        if (!_blinking) StartCoroutine(DoBlink());
+    }
+
     void SetEyesVisible(bool visible)
     {
         if (leftEye)  leftEye.SetActive(visible);

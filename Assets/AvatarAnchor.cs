@@ -5,7 +5,7 @@ public class AvatarAnchor : MonoBehaviour
     [Range(0f, 1f)] public float viewportX = 0.85f;
     [Range(0f, 1f)] public float viewportY = 0.2f;
 
-    void Start()
+    void Awake()
     {
         Camera cam = Camera.main;
         float dist = Vector3.Distance(cam.transform.position, transform.position);
