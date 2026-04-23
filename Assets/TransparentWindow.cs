@@ -25,8 +25,9 @@ public class TransparentWindow : MonoBehaviour
     const long WS_EX_LAYERED            = 0x00080000L;
     const long WS_EX_TRANSPARENT        = 0x00000020L;
 
-    IntPtr _hWnd;
-    bool   _clickThrough;
+    IntPtr     _hWnd;
+    bool       _clickThrough;
+    SettingsUI _settingsUI;
 
     void Start()
     {
@@ -43,6 +44,7 @@ public class TransparentWindow : MonoBehaviour
         SetWindowPos(_hWnd, HWND_TOPMOST, 0, 0, screenW, screenH, 0);
 
         SetClickThrough(true);
+        _settingsUI = FindObjectOfType<SettingsUI>();
 #endif
     }
 
@@ -52,7 +54,9 @@ public class TransparentWindow : MonoBehaviour
         GetCursorPos(out POINT p);
         float screenY = Screen.height - p.Y;
         Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, screenY, 0));
-        bool overAvatar = Physics.Raycast(ray);
+        bool overAvatar = Physics.Raycast(ray)
+                       || (_settingsUI != null && _settingsUI.IsPointerOverUI())
+                       || AvatarDrag.IsDragging;
         if (overAvatar != !_clickThrough)
             SetClickThrough(!overAvatar);
 #endif

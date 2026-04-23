@@ -18,12 +18,15 @@ public class BeatDetector : MonoBehaviour
     [Range(0.1f, 1f)]    public float amplitudeCurve        = 0.7f;
     [Range(0f, 0.3f)]    public float minAmplitude          = 0.05f;
     [Range(0.2f, 0.8f)]  public float nodAttack             = 0.4f;
+    [Range(0f, 2f)]      public float spineScale            = 1f;
+    [Range(0f, 2f)]      public float headNodScale          = 1f;
 
     [Header("Vibe")]
     [Range(0f, 1f)]      public float vibeInfluence         = 0.5f;
 
     [Header("Debug")]
-    public bool showDebug = true;
+    public bool showDebug     = true;
+    public bool reactToMusic  = true;
 
     // Public readable state
     public float Energy        { get; private set; }
@@ -462,6 +465,17 @@ public class BeatDetector : MonoBehaviour
             return;
         }
 
+        if (!reactToMusic)
+        {
+            for (int i = 0; i < boneChain.Length; i++)
+                if (boneChain[i].bone)
+                    boneChain[i].bone.localRotation = _initialRots[i];
+            HeadNodAngle       = 0f;
+            HeadNodTurn        = 0f;
+            _smoothedAmplitude = 0f;
+            return;
+        }
+
         float rawAmp = Mathf.Clamp01(BassEnergy * bassAmplitudeScale);
         float curved = Mathf.Pow(rawAmp, amplitudeCurve);
         float floor  = Energy > 0.001f ? minAmplitude * (0.5f + VibeEnergy * 0.5f) : 0f;
@@ -490,13 +504,13 @@ public class BeatDetector : MonoBehaviour
             {
                 if (!boneChain[i].bone) continue;
                 boneChain[i].bone.localRotation = _initialRots[i]
-                    * Quaternion.Euler(nodAngle * boneChain[i].angle, 0f, 0f);
+                    * Quaternion.Euler(nodAngle * boneChain[i].angle * spineScale, 0f, 0f);
             }
             else
             {
                 float dirRad = _nodDirDeg * Mathf.Deg2Rad;
-                HeadNodAngle = nodAngle * Mathf.Cos(dirRad);
-                HeadNodTurn  = nodAngle * Mathf.Sin(dirRad);
+                HeadNodAngle = reactToMusic ? nodAngle * Mathf.Cos(dirRad) * headNodScale : 0f;
+                HeadNodTurn  = reactToMusic ? nodAngle * Mathf.Sin(dirRad) * headNodScale : 0f;
             }
         }
     }

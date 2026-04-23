@@ -600,6 +600,7 @@ GameObject:
   - component: {fileID: 1730638382325397123}
   - component: {fileID: 1730638382325397130}
   - component: {fileID: 1730638382325397131}
+  - component: {fileID: 1730638382325397132}
   m_Layer: 0
   m_Name: Mellow_Rigged
   m_TagString: Untagged
@@ -774,7 +775,28 @@ MonoBehaviour:
   amplitudeCurve: 0.7
   minAmplitude: 0.05
   nodAttack: 0.4
+  vibeInfluence: 0.5
   showDebug: 1
+  reactToMusic: 1
+--- !u!114 &1730638382325397132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1391514277589363768}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b563bc8be1688704a888919255fc2a81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SettingsUI
+  beatDetector: {fileID: 1730638382325397131}
+  avatarHead: {fileID: 3668370321995678849}
+  cogSprite: {fileID: 21300000, guid: 80bf752665687ce418faa3ba33e58965, type: 3}
+  cogOffset: {x: -130, y: 182}
+  cogSize: 81
+  hoverDelay: 1
+  fadeOutDelay: 2.5
 --- !u!1 &1968665866468277916
 GameObject:
   m_ObjectHideFlags: 0
