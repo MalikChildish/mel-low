@@ -75,3 +75,7 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 # End of https://www.toptal.com/developers/gitignore/api/unity
+
+# Third-party Asset Store assets (not redistributable under Standard Unity Asset Store EULA)
+/[Aa]ssets/Speech Bubble/
+/[Aa]ssets/Speech Bubble.meta

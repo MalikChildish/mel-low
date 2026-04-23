@@ -13,35 +13,68 @@ public class AvatarDrag : MonoBehaviour
 
     const int VK_LBUTTON = 0x01;
 
-    TransparentWindow.POINT _prevCursor;
-    bool _prevCursorValid;
-    bool _prevButtonDown;
+    Animator _animator;
+    bool     _rootMotionDisabled;
+    Vector3  _dragOffset;
+    bool     _prevButtonDown;
 
-    void Update()
+    void Start()
+    {
+        if (avatarRoot)
+        {
+            _animator = avatarRoot.GetComponentInChildren<Animator>();
+            if (PlayerPrefs.HasKey("avatarPosX"))
+                avatarRoot.position = new Vector3(
+                    PlayerPrefs.GetFloat("avatarPosX"),
+                    PlayerPrefs.GetFloat("avatarPosY"),
+                    avatarRoot.position.z);
+        }
+    }
+
+    void LateUpdate()
     {
         if (!avatarRoot || !Camera.main) return;
+
+        if (!_rootMotionDisabled && _animator != null)
+        {
+            _animator.applyRootMotion = false;
+            _rootMotionDisabled = true;
+        }
 
         bool buttonDown  = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         bool justPressed = buttonDown && !_prevButtonDown;
         _prevButtonDown  = buttonDown;
 
-        GetCursorPos(out TransparentWindow.POINT cur);
+        if (justPressed && !SettingsUI.PanelOpen && IsOverAvatar())
+        {
+            IsDragging  = true;
+            _dragOffset = avatarRoot.position - CursorWorldPos();
+        }
 
-        if (justPressed && IsOverAvatar())
-            IsDragging = true;
+        if (IsDragging && !buttonDown)
+        {
+            PlayerPrefs.SetFloat("avatarPosX", avatarRoot.position.x);
+            PlayerPrefs.SetFloat("avatarPosY", avatarRoot.position.y);
+            PlayerPrefs.Save();
+        }
 
         if (!buttonDown)
             IsDragging = false;
 
-        if (IsDragging && buttonDown && _prevCursorValid)
-        {
-            float dx =  (cur.X - _prevCursor.X);
-            float dy = -(cur.Y - _prevCursor.Y); // Win32 Y is top-down; Unity is bottom-up
-            ApplyDelta(dx, dy);
-        }
+        if (IsDragging && buttonDown)
+            avatarRoot.position = CursorWorldPos() + _dragOffset;
+    }
 
-        _prevCursor      = cur;
-        _prevCursorValid = true;
+    Vector3 CursorWorldPos()
+    {
+        float depth = Camera.main.WorldToScreenPoint(avatarRoot.position).z;
+#if UNITY_EDITOR
+        Vector2 sp = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+#else
+        GetCursorPos(out TransparentWindow.POINT p);
+        Vector2 sp = new Vector2(p.X, Screen.height - p.Y);
+#endif
+        return Camera.main.ScreenToWorldPoint(new Vector3(sp.x, sp.y, depth));
     }
 
     bool IsOverAvatar()
@@ -55,13 +88,5 @@ public class AvatarDrag : MonoBehaviour
         Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, screenY, 0));
 #endif
         return Physics.Raycast(ray);
-    }
-
-    void ApplyDelta(float dx, float dy)
-    {
-        float   depth = Camera.main.WorldToScreenPoint(avatarRoot.position).z;
-        Vector3 a     = Camera.main.ScreenToWorldPoint(new Vector3(0,  0,  depth));
-        Vector3 b     = Camera.main.ScreenToWorldPoint(new Vector3(dx, dy, depth));
-        avatarRoot.position += b - a;
     }
 }

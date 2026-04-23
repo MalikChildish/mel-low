@@ -6,7 +6,7 @@ using CSCore.SoundIn;
 public class BeatDetector : MonoBehaviour
 {
     [Header("Detection")]
-    [Range(1f, 3f)]      public float sensitivity           = 1.5f;
+    [Range(0.1f, 5f)]    public float sensitivity           = 1.5f;
     [Range(0.01f, 0.3f)] public float smoothing             = 0.08f;
 
     [Header("Body Wave")]
@@ -18,8 +18,8 @@ public class BeatDetector : MonoBehaviour
     [Range(0.1f, 1f)]    public float amplitudeCurve        = 0.7f;
     [Range(0f, 0.3f)]    public float minAmplitude          = 0.05f;
     [Range(0.2f, 0.8f)]  public float nodAttack             = 0.4f;
-    [Range(0f, 2f)]      public float spineScale            = 1f;
-    [Range(0f, 2f)]      public float headNodScale          = 1f;
+    [Range(0f, 10f)]     public float spineScale            = 1f;
+    [Range(0f, 10f)]     public float headNodScale          = 1f;
 
     [Header("Vibe")]
     [Range(0f, 1f)]      public float vibeInfluence         = 0.5f;

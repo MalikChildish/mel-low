@@ -1,9 +1,9 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class SettingsUI : MonoBehaviour
@@ -11,11 +11,38 @@ public class SettingsUI : MonoBehaviour
     [Header("References")]
     public BeatDetector beatDetector;
     public Transform    avatarHead;
-    public Sprite       cogSprite;
 
-    [Header("Cog Position")]
+    [Header("Cog")]
     public Vector2 cogOffset = new Vector2(-60f, 48f);
     [Range(24f, 128f)] public float cogSize = 64f;
+    [SerializeField] RectTransform _cogRect;
+    [SerializeField] CanvasGroup   _cogGroup;
+    [SerializeField] Button        _cogButton;
+
+    [Header("Panel")]
+    [SerializeField] RectTransform _panelRect;
+    [SerializeField] CanvasGroup   _panelGroup;
+    [SerializeField] Image         _panelImage;
+    [SerializeField] Button        _closeButton;
+    [SerializeField] Text          _bpmText;
+    [Range(0, 40)] public int cornerRadius = 16;
+
+    [Header("Sliders")]
+    [SerializeField] Slider _sensitivitySlider;
+    [SerializeField] Text   _sensitivityValue;
+    [SerializeField] Slider _neckAngleSlider;
+    [SerializeField] Text   _neckAngleValue;
+    [SerializeField] Slider _spineAngleSlider;
+    [SerializeField] Text   _spineAngleValue;
+
+    [Header("React Button")]
+    [SerializeField] Button _reactButton;
+    [SerializeField] Text   _reactButtonLabel;
+
+    [Header("Chat Bubble Button")]
+    [SerializeField] Button      _chatBubbleButton;
+    [SerializeField] Text        _chatBubbleButtonLabel;
+    public           AvatarSpeech avatarSpeech;
 
     [Header("Timing")]
     [Range(0.1f, 2f)] public float hoverDelay   = 0.8f;
@@ -25,50 +52,82 @@ public class SettingsUI : MonoBehaviour
     static extern bool GetCursorPos(out TransparentWindow.POINT p);
 
     GraphicRaycaster _raycaster;
-    CanvasGroup      _cogGroup;
-    RectTransform    _cogRect;
-    CanvasGroup      _panelGroup;
-    RectTransform    _panelRect;
-    Text             _bpmText;
-    bool             _panelOpen;
-    float            _hoverTimer;
-    float            _outTimer;
-    bool             _cogVisible;
+    public static bool PanelOpen { get; private set; }
+    float _hoverTimer;
+    float _outTimer;
+    bool  _cogVisible;
 
-    void Awake() => BuildUI();
+    void Start()
+    {
+        _raycaster = GetComponentInParent<GraphicRaycaster>();
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Update
-    // ─────────────────────────────────────────────────────────────────────
+        // Rounded panel corners
+        if (_panelImage)
+        {
+            _panelImage.sprite = MakeRoundedSprite(64, cornerRadius);
+            _panelImage.type   = Image.Type.Sliced;
+        }
+
+        // Hide both groups at start
+        SetGroup(_cogGroup,   false);
+        SetGroup(_panelGroup, false);
+
+        // Button listeners
+        _cogButton?.onClick.AddListener(TogglePanel);
+        _closeButton?.onClick.AddListener(TogglePanel);
+        _reactButton?.onClick.AddListener(ToggleReactToMusic);
+        _chatBubbleButton?.onClick.AddListener(ToggleChatBubble);
+
+        // Slider bindings
+        if (beatDetector != null)
+        {
+            BindSlider(_sensitivitySlider, _sensitivityValue, 0.1f, 5f,
+                () => beatDetector.sensitivity,   v => beatDetector.sensitivity   = v, "sensitivity");
+            if (beatDetector.boneChain != null && beatDetector.boneChain.Length > 1)
+                BindSlider(_neckAngleSlider,  _neckAngleValue,  -20f, 20f,
+                    () => beatDetector.boneChain[1].angle, v => beatDetector.boneChain[1].angle = v, null);
+            if (beatDetector.boneChain != null && beatDetector.boneChain.Length > 0)
+                BindSlider(_spineAngleSlider, _spineAngleValue, -20f, 20f,
+                    () => beatDetector.boneChain[0].angle, v => beatDetector.boneChain[0].angle = v, null);
+        }
+
+        // Load saved toggle states
+        if (beatDetector != null)
+            beatDetector.reactToMusic = PlayerPrefs.GetInt("reactToMusic", 1) == 1;
+        if (avatarSpeech != null)
+            avatarSpeech.enabled = PlayerPrefs.GetInt("chatBubble", 1) == 1;
+
+        RefreshReactButton();
+        RefreshChatBubbleButton();
+    }
 
     void Update()
     {
         UpdateCogPosition();
         UpdateHover();
         UpdateFade();
-        if (_panelOpen && _bpmText != null && beatDetector != null)
+
+        if (PanelOpen && _bpmText && beatDetector)
             _bpmText.text = $"BPM: {beatDetector.BPM:F1}";
     }
 
+    // ── Cog positioning ──────────────────────────────────────────────────────
+
     void UpdateCogPosition()
     {
-        if (!avatarHead || !Camera.main) return;
+        if (!avatarHead || !Camera.main || !_cogRect) return;
         Vector3 sp = Camera.main.WorldToScreenPoint(avatarHead.position);
-        // Anchor cog above and to the viewer's left of the head
         _cogRect.sizeDelta        = new Vector2(cogSize, cogSize);
         _cogRect.anchoredPosition = new Vector2(
             sp.x - Screen.width  * 0.5f + cogOffset.x,
             sp.y - Screen.height * 0.5f + cogOffset.y);
     }
 
+    // ── Hover show/hide ──────────────────────────────────────────────────────
+
     void UpdateHover()
     {
-#if UNITY_EDITOR
-        // In editor use Unity's mouse position for testing
         bool over = IsOverAvatar();
-#else
-        bool over = IsOverAvatar();
-#endif
         if (over)
         {
             _outTimer = 0f;
@@ -81,7 +140,7 @@ public class SettingsUI : MonoBehaviour
         else
         {
             _hoverTimer = 0f;
-            if (_cogVisible && !_panelOpen)
+            if (_cogVisible && !PanelOpen)
             {
                 _outTimer += Time.deltaTime;
                 if (_outTimer >= fadeOutDelay) HideCog();
@@ -89,51 +148,98 @@ public class SettingsUI : MonoBehaviour
         }
     }
 
-    void UpdateFade()
-    {
-        float cogTarget   = _cogVisible  ? 1f : 0f;
-        float panelTarget = _panelOpen   ? 1f : 0f;
-
-        _cogGroup.alpha  = Mathf.MoveTowards(_cogGroup.alpha,   cogTarget,   Time.deltaTime * 5f);
-        _panelGroup.alpha = Mathf.MoveTowards(_panelGroup.alpha, panelTarget, Time.deltaTime * 8f);
-
-        _cogGroup.interactable    = _cogGroup.alpha   > 0.5f;
-        _cogGroup.blocksRaycasts  = _cogGroup.alpha   > 0.5f;
-        _panelGroup.interactable   = _panelGroup.alpha > 0.5f;
-        _panelGroup.blocksRaycasts = _panelGroup.alpha > 0.5f;
-    }
-
     void ShowCog() { _cogVisible = true; }
     void HideCog() { _cogVisible = false; _hoverTimer = 0f; }
 
-    void TogglePanel()
+    // ── Alpha fading ─────────────────────────────────────────────────────────
+
+    void UpdateFade()
     {
-        _panelOpen = !_panelOpen;
-        if (_panelOpen)
-        {
-            // Position panel above the cog, clamped to screen
-            Vector2 cogPos  = _cogRect.anchoredPosition;
-            float   panelH  = _panelRect.sizeDelta.y;
-            float   panelW  = _panelRect.sizeDelta.x;
-            float   screenHalf = Screen.height * 0.5f;
-            float   yPos    = cogPos.y + 32f + panelH * 0.5f;
-            // Clamp so panel stays on screen
-            yPos = Mathf.Clamp(yPos, -screenHalf + panelH * 0.5f + 10f, screenHalf - panelH * 0.5f - 10f);
-            float xPos = Mathf.Clamp(cogPos.x, -Screen.width * 0.5f + panelW * 0.5f + 10f, Screen.width * 0.5f - panelW * 0.5f - 10f);
-            _panelRect.anchoredPosition = new Vector2(xPos, yPos);
-            ShowCog();
-        }
+        Fade(_cogGroup,   _cogVisible  ? 1f : 0f, 5f);
+        Fade(_panelGroup, PanelOpen   ? 1f : 0f, 8f);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Hit testing — used by TransparentWindow to keep click-through off
-    // ─────────────────────────────────────────────────────────────────────
+    void Fade(CanvasGroup g, float target, float speed)
+    {
+        if (!g) return;
+        g.alpha           = Mathf.MoveTowards(g.alpha, target, Time.deltaTime * speed);
+        g.interactable    = g.alpha > 0.5f;
+        g.blocksRaycasts  = g.alpha > 0.5f;
+    }
+
+    // ── Panel toggle ─────────────────────────────────────────────────────────
+
+    void TogglePanel()
+    {
+        PanelOpen = !PanelOpen;
+        if (!PanelOpen) return;
+
+        ShowCog();
+
+        Vector2 cogPos   = _cogRect.anchoredPosition;
+        float   panelH   = _panelRect.sizeDelta.y;
+        float   panelW   = _panelRect.sizeDelta.x;
+        float   halfW    = Screen.width  * 0.5f;
+        float   halfH    = Screen.height * 0.5f;
+
+        // Open toward whichever side has more space
+        float cogScreenY = cogPos.y + halfH;
+        float yDir       = (Screen.height - cogScreenY) >= cogScreenY ? 1f : -1f;
+        float yPos       = Mathf.Clamp(cogPos.y + yDir * (32f + panelH * 0.5f),
+                               -halfH + panelH * 0.5f + 10f,
+                                halfH - panelH * 0.5f - 10f);
+
+        float cogScreenX = cogPos.x + halfW;
+        float xDir       = (Screen.width - cogScreenX) >= cogScreenX ? 1f : -1f;
+        float xPos       = Mathf.Clamp(cogPos.x + xDir * panelW * 0.5f,
+                               -halfW + panelW * 0.5f + 10f,
+                                halfW - panelW * 0.5f - 10f);
+
+        _panelRect.anchoredPosition = new Vector2(xPos, yPos);
+    }
+
+    // ── React to Music ───────────────────────────────────────────────────────
+
+    void ToggleReactToMusic()
+    {
+        if (!beatDetector) return;
+        beatDetector.reactToMusic = !beatDetector.reactToMusic;
+        PlayerPrefs.SetInt("reactToMusic", beatDetector.reactToMusic ? 1 : 0);
+        PlayerPrefs.Save();
+        RefreshReactButton();
+    }
+
+    void RefreshReactButton()
+    {
+        if (_reactButtonLabel)
+            _reactButtonLabel.text = "React to Music: " + (beatDetector != null && beatDetector.reactToMusic ? "ON" : "OFF");
+    }
+
+    // ── Chat Bubble ──────────────────────────────────────────────────────────
+
+    void ToggleChatBubble()
+    {
+        if (!avatarSpeech) return;
+        avatarSpeech.enabled = !avatarSpeech.enabled;
+        PlayerPrefs.SetInt("chatBubble", avatarSpeech.enabled ? 1 : 0);
+        PlayerPrefs.Save();
+        RefreshChatBubbleButton();
+    }
+
+    void RefreshChatBubbleButton()
+    {
+        if (_chatBubbleButtonLabel)
+            _chatBubbleButtonLabel.text = "Chat Bubble: " + (avatarSpeech != null && avatarSpeech.enabled ? "ON" : "OFF");
+    }
+
+    // ── Hit testing (used by TransparentWindow) ───────────────────────────────
 
     public bool IsPointerOverUI()
     {
+        if (!_raycaster || EventSystem.current == null) return false;
         GetCursorPos(out TransparentWindow.POINT p);
-        float screenY = Screen.height - p.Y;
-        var ped = new PointerEventData(EventSystem.current) { position = new Vector2(p.X, screenY) };
+        var ped     = new PointerEventData(EventSystem.current)
+                          { position = new Vector2(p.X, Screen.height - p.Y) };
         var results = new List<RaycastResult>();
         _raycaster.Raycast(ped, results);
         return results.Count > 0;
@@ -143,248 +249,77 @@ public class SettingsUI : MonoBehaviour
     {
         if (!Camera.main) return false;
 #if UNITY_EDITOR
-        Vector2 mp = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-        Ray ray = Camera.main.ScreenPointToRay(mp);
+        if (Mouse.current == null) return false;
+        Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
 #else
         GetCursorPos(out TransparentWindow.POINT p);
-        float screenY = Screen.height - p.Y;
-        Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, screenY, 0));
+        Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, Screen.height - p.Y, 0));
 #endif
         return Physics.Raycast(ray) || IsPointerOverUI();
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  UI Construction
-    // ─────────────────────────────────────────────────────────────────────
+    // ── Dev utilities ────────────────────────────────────────────────────────
 
-    void BuildUI()
+    [ContextMenu("Clear Saved Settings")]
+    void ClearSavedSettings()
     {
-        var canvasGo = new GameObject("SettingsCanvas");
-        var canvas   = canvasGo.AddComponent<Canvas>();
-        canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 100;
-        canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        _raycaster = canvasGo.AddComponent<GraphicRaycaster>();
-
-        if (FindAnyObjectByType<EventSystem>() == null)
-        {
-            var esGo = new GameObject("EventSystem");
-            esGo.AddComponent<EventSystem>();
-            esGo.AddComponent<InputSystemUIInputModule>();
-        }
-
-        BuildCog(canvasGo.transform);
-        BuildPanel(canvasGo.transform);
+        PlayerPrefs.DeleteKey("sensitivity");
+        PlayerPrefs.DeleteKey("reactToMusic");
+        PlayerPrefs.DeleteKey("chatBubble");
+        PlayerPrefs.DeleteKey("avatarPosX");
+        PlayerPrefs.DeleteKey("avatarPosY");
+        PlayerPrefs.Save();
+        Debug.Log("Saved settings cleared.");
     }
 
-    void BuildCog(Transform root)
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    void BindSlider(Slider slider, Text valueText, float min, float max,
+                    Func<float> get, Action<float> set, string prefsKey)
     {
-        var go = new GameObject("Cog", typeof(RectTransform));
-        go.transform.SetParent(root, false);
+        if (!slider) return;
 
-        _cogGroup                  = go.AddComponent<CanvasGroup>();
-        _cogGroup.alpha            = 0f;
-        _cogGroup.interactable     = false;
-        _cogGroup.blocksRaycasts   = false;
+        if (prefsKey != null && PlayerPrefs.HasKey(prefsKey))
+            set(PlayerPrefs.GetFloat(prefsKey));
 
-        _cogRect           = (RectTransform)go.transform;
-        _cogRect.sizeDelta = new Vector2(48, 48);
-        _cogRect.anchorMin = _cogRect.anchorMax = new Vector2(0.5f, 0.5f);
-
-        var img = go.AddComponent<Image>();
-        if (cogSprite != null) img.sprite = cogSprite;
-        else                   img.color  = new Color(1f, 0.85f, 0.3f, 0.9f);
-
-        var btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        var c = btn.colors;
-        c.normalColor      = Color.white;
-        c.highlightedColor = new Color(1f, 0.85f, 0.3f);
-        c.pressedColor     = new Color(0.8f, 0.6f, 0.2f);
-        btn.colors         = c;
-        btn.onClick.AddListener(TogglePanel);
-    }
-
-    void BuildPanel(Transform root)
-    {
-        var go = new GameObject("SettingsPanel", typeof(RectTransform));
-        go.transform.SetParent(root, false);
-
-        _panelGroup                  = go.AddComponent<CanvasGroup>();
-        _panelGroup.alpha            = 0f;
-        _panelGroup.interactable     = false;
-        _panelGroup.blocksRaycasts   = false;
-
-        _panelRect           = (RectTransform)go.transform;
-        _panelRect.sizeDelta = new Vector2(260, 252);
-        _panelRect.anchorMin = _panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-
-        var panelImg  = go.AddComponent<Image>();
-        panelImg.color  = new Color(0.11f, 0.13f, 0.18f, 0.92f);
-
-        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        Transform p = go.transform;
-
-        // Header
-        MakeText("Title", p, new Vector2(-40f, 108f), new Vector2(140, 26),
-                 "SETTINGS", 13, new Color(1f, 0.85f, 0.3f), font, FontStyle.Bold);
-
-        // Close button
-        var closeRT = MakeRect("CloseBtn", p, new Vector2(108f, 108f), new Vector2(26, 26));
-        var closeBg  = closeRT.gameObject.AddComponent<Image>();
-        closeBg.color = new Color(0.6f, 0.18f, 0.18f);
-        var closeBtn = closeRT.gameObject.AddComponent<Button>();
-        closeBtn.targetGraphic = closeBg;
-        closeBtn.onClick.AddListener(TogglePanel);
-        MakeText("X", closeRT, Vector2.zero, new Vector2(26, 26), "✕", 12, Color.white, font);
-
-        MakeDivider(p, 94f);
-
-        // Sliders
-        float y = 68f;
-        if (beatDetector != null)
+        slider.minValue = min;
+        slider.maxValue = max;
+        slider.value    = get();
+        if (valueText) valueText.text = get().ToString("F2");
+        slider.onValueChanged.AddListener(v =>
         {
-            y = SliderRow(p, font, "Sensitivity", y, 1f,  3f,  () => beatDetector.sensitivity,   v => beatDetector.sensitivity   = v);
-            y = SliderRow(p, font, "Neck Angle",  y, 0f,  2f,  () => beatDetector.headNodScale,  v => beatDetector.headNodScale  = v);
-            y = SliderRow(p, font, "Spine Angle", y, 0f,  2f,  () => beatDetector.spineScale,    v => beatDetector.spineScale    = v);
-        }
-
-        MakeDivider(p, y - 8f);
-
-        // Live BPM readout
-        var bpmRT = MakeRect("BPM", p, new Vector2(0, y - 28f), new Vector2(230, 20));
-        _bpmText           = bpmRT.gameObject.AddComponent<Text>();
-        _bpmText.font      = font;
-        _bpmText.fontSize  = 11;
-        _bpmText.color     = new Color(0.45f, 0.85f, 0.55f);
-        _bpmText.alignment = TextAnchor.MiddleCenter;
-        _bpmText.text      = "BPM: —";
-
-        // React to Music toggle
-        var reactRT  = MakeRect("ReactBtn", p, new Vector2(0, y - 54f), new Vector2(220, 28));
-        var reactBg  = reactRT.gameObject.AddComponent<Image>();
-        bool reactOn = beatDetector == null || beatDetector.reactToMusic;
-        reactBg.color = reactOn ? new Color(0.15f, 0.38f, 0.22f) : new Color(0.28f, 0.15f, 0.15f);
-        var reactBtn = reactRT.gameObject.AddComponent<Button>();
-        reactBtn.targetGraphic = reactBg;
-        var reactLabel = MakeText("Label", reactRT, Vector2.zero, new Vector2(220, 28),
-                                  "React to Music: " + (reactOn ? "ON" : "OFF"), 11, Color.white, font);
-        reactBtn.onClick.AddListener(() =>
-        {
-            if (!beatDetector) return;
-            beatDetector.reactToMusic = !beatDetector.reactToMusic;
-            bool on = beatDetector.reactToMusic;
-            reactBg.color   = on ? new Color(0.15f, 0.38f, 0.22f) : new Color(0.28f, 0.15f, 0.15f);
-            reactLabel.text = "React to Music: " + (on ? "ON" : "OFF");
+            set(v);
+            if (valueText) valueText.text = v.ToString("F2");
+            if (prefsKey != null) { PlayerPrefs.SetFloat(prefsKey, v); PlayerPrefs.Save(); }
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    float SliderRow(Transform parent, Font font, string label, float y,
-                    float min, float max, Func<float> get, Action<float> set)
+    void SetGroup(CanvasGroup g, bool visible)
     {
-        var row = MakeRect(label + "Row", parent, new Vector2(0, y), new Vector2(240, 36));
-
-        MakeText("Lbl", row, new Vector2(-72f, 0), new Vector2(82, 28), label,
-                 11, new Color(0.92f, 0.92f, 0.92f), font);
-
-        var valRT = MakeRect("Val", row, new Vector2(102f, 0), new Vector2(40, 28));
-        var valTxt = valRT.gameObject.AddComponent<Text>();
-        valTxt.font      = font;
-        valTxt.fontSize  = 11;
-        valTxt.color     = new Color(1f, 0.85f, 0.3f);
-        valTxt.alignment = TextAnchor.MiddleRight;
-        valTxt.text      = get().ToString("F2");
-
-        var slider = MakeSlider(row, new Vector2(12f, 0), new Vector2(118, 14), min, max, get());
-        slider.onValueChanged.AddListener(v => { set(v); valTxt.text = v.ToString("F2"); });
-        return y - 44f;
+        if (!g) return;
+        g.alpha           = visible ? 1f : 0f;
+        g.interactable    = visible;
+        g.blocksRaycasts  = visible;
     }
 
-    Slider MakeSlider(RectTransform parent, Vector2 pos, Vector2 size, float min, float max, float val)
-    {
-        var go     = MakeRect("Slider", parent, pos, size);
-        var slider = go.gameObject.AddComponent<Slider>();
-        slider.minValue = min; slider.maxValue = max; slider.value = val;
-
-        var bg = MakeRect("BG", go, Vector2.zero, Vector2.zero);
-        bg.anchorMin = Vector2.zero; bg.anchorMax = Vector2.one;
-        bg.gameObject.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.10f);
-
-        var fillArea = MakeRect("FillArea", go, Vector2.zero, new Vector2(-20, 0));
-        fillArea.anchorMin = new Vector2(0, 0.25f); fillArea.anchorMax = new Vector2(1, 0.75f);
-        fillArea.offsetMin = new Vector2(5, 0);     fillArea.offsetMax = new Vector2(-15, 0);
-
-        var fill = MakeRect("Fill", fillArea, Vector2.zero, Vector2.zero);
-        fill.anchorMin = Vector2.zero; fill.anchorMax = new Vector2(0, 1);
-        fill.gameObject.AddComponent<Image>().color = new Color(1f, 0.78f, 0.2f);
-        slider.fillRect = fill;
-
-        var handleArea = MakeRect("HandleArea", go, Vector2.zero, Vector2.zero);
-        handleArea.anchorMin = Vector2.zero; handleArea.anchorMax = Vector2.one;
-        handleArea.offsetMin = new Vector2(10, 0); handleArea.offsetMax = new Vector2(-10, 0);
-
-        var handle    = MakeRect("Handle", handleArea, Vector2.zero, new Vector2(16, 16));
-        handle.anchorMin = handle.anchorMax = new Vector2(0, 0.5f);
-        var handleImg = handle.gameObject.AddComponent<Image>();
-        handleImg.color        = Color.white;
-        slider.handleRect      = handle;
-        slider.targetGraphic   = handleImg;
-
-        return slider;
-    }
-
-    RectTransform MakeRect(string name, Transform parent, Vector2 pos, Vector2 size)
-    {
-        var go = new GameObject(name, typeof(RectTransform));
-        go.transform.SetParent(parent, false);
-        var rt = (RectTransform)go.transform;
-        rt.anchorMin        = rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = pos;
-        rt.sizeDelta        = size;
-        return rt;
-    }
-
-    Text MakeText(string name, Transform parent, Vector2 pos, Vector2 size,
-                  string content, int fontSize, Color color, Font font,
-                  FontStyle style = FontStyle.Normal)
-    {
-        var rt   = MakeRect(name, parent, pos, size);
-        var txt  = rt.gameObject.AddComponent<Text>();
-        txt.text      = content;
-        txt.font      = font;
-        txt.fontSize  = fontSize;
-        txt.fontStyle = style;
-        txt.color     = color;
-        txt.alignment = TextAnchor.MiddleCenter;
-        return txt;
-    }
-
-    void MakeDivider(Transform parent, float y)
-    {
-        var rt = MakeRect("Divider", parent, new Vector2(0, y), new Vector2(268, 1));
-        rt.gameObject.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.25f);
-    }
-
-    Sprite MakeRoundedRectSprite(int size, int radius)
+    Sprite MakeRoundedSprite(int size, int radius)
     {
         var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
         tex.filterMode = FilterMode.Bilinear;
         var pixels = new Color[size * size];
-        for (int py = 0; py < size; py++)
-        for (int px = 0; px < size; px++)
-            pixels[py * size + px] = RoundedRectContains(px, py, size, size, radius) ? Color.white : Color.clear;
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+            pixels[y * size + x] = InRoundedRect(x, y, size, size, radius)
+                ? Color.white : new Color(1f, 1f, 1f, 0f);
         tex.SetPixels(pixels);
         tex.Apply();
         float b = radius;
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 1f, 0,
+        return Sprite.Create(tex, new Rect(0, 0, size, size),
+                             new Vector2(0.5f, 0.5f), 1f, 0,
                              SpriteMeshType.FullRect, new Vector4(b, b, b, b));
     }
 
-    bool RoundedRectContains(int x, int y, int w, int h, int r)
+    bool InRoundedRect(int x, int y, int w, int h, int r)
     {
         bool cx = x < r || x >= w - r;
         bool cy = y < r || y >= h - r;

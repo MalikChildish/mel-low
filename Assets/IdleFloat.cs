@@ -17,6 +17,13 @@ public class IdleFloat : MonoBehaviour
             return;
         }
 
+        if (AvatarDrag.IsDragging)
+        {
+            // Track position while dragging so float resumes from new spot
+            _initialPos = transform.position;
+            return;
+        }
+
         float offset = Mathf.Sin(Time.time * speed) * amplitude;
         transform.position = _initialPos + new Vector3(0f, offset, 0f);
     }
