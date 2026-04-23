@@ -598,7 +598,8 @@ GameObject:
   - component: {fileID: 1730638382325397125}
   - component: {fileID: 1730638382325397124}
   - component: {fileID: 1730638382325397123}
-  - component: {fileID: 1730638382325397128}
+  - component: {fileID: 1730638382325397130}
+  - component: {fileID: 1730638382325397131}
   m_Layer: 0
   m_Name: Mellow_Rigged
   m_TagString: Untagged
@@ -728,7 +729,7 @@ MonoBehaviour:
   minBlinkInterval: 10
   maxBlinkInterval: 18
   blinkDuration: 0.15
---- !u!114 &1730638382325397128
+--- !u!114 &1730638382325397130
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -741,10 +742,39 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HeadTilt
   headBone: {fileID: 3668370321995678849}
+  beatDetector: {fileID: 1730638382325397131}
   smoothSpeed: 3
   maxTilt: 12
   maxTurn: 15
   maxNod: 10
+  beatNodScale: 4
+--- !u!114 &1730638382325397131
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1391514277589363768}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4084f596674c4d246a299da4e09882fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BeatDetector
+  sensitivity: 1.5
+  smoothing: 0.08
+  boneChain:
+  - bone: {fileID: 2603673402583416922}
+    angle: 1
+  - bone: {fileID: 2444421850589990097}
+    angle: 6
+  phaseOffset: 0.3
+  amplitudeSmoothing: 4
+  bassAmplitudeScale: 60
+  beatIntervalSmoothing: 0.25
+  amplitudeCurve: 0.7
+  minAmplitude: 0.05
+  nodAttack: 0.4
+  showDebug: 1
 --- !u!1 &1968665866468277916
 GameObject:
   m_ObjectHideFlags: 0
@@ -882,7 +912,7 @@ Transform:
   m_GameObject: {fileID: 2738721749250471264}
   serializedVersion: 2
   m_LocalRotation: {x: -0.000000037748947, y: 0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 0.14031659, z: -2.7755576e-17}
+  m_LocalPosition: {x: -0, y: 0, z: 0}
   m_LocalScale: {x: 9.827081, y: 15.883658, z: 11.249305}
   m_ConstrainProportionsScale: 0
   m_Children: []
