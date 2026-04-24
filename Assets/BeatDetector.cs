@@ -13,10 +13,12 @@ public class BeatDetector : MonoBehaviour
     public BoneLayer[] boneChain;
     [Range(0f, 1f)]      public float phaseOffset           = 0.3f;
     [Range(0.1f, 10f)]   public float amplitudeSmoothing    = 1.5f;
+    [Range(0.1f, 20f)]   public float amplitudeDecay        = 6f;
     [Range(1f, 200f)]    public float bassAmplitudeScale    = 60f;
     [Range(0.01f, 0.3f)] public float beatIntervalSmoothing = 0.05f;
     [Range(0.1f, 1f)]    public float amplitudeCurve        = 0.7f;
     [Range(0f, 0.3f)]    public float minAmplitude          = 0.05f;
+    [Range(0f, 0.2f)]    public float minEnergyToNod        = 0.03f;
     [Range(0.2f, 0.8f)]  public float nodAttack             = 0.4f;
     [Range(0f, 10f)]     public float spineScale            = 1f;
     [Range(0f, 10f)]     public float headNodScale          = 1f;
@@ -478,9 +480,11 @@ public class BeatDetector : MonoBehaviour
 
         float rawAmp = Mathf.Clamp01(BassEnergy * bassAmplitudeScale);
         float curved = Mathf.Pow(rawAmp, amplitudeCurve);
-        float floor  = Energy > 0.001f ? minAmplitude * (0.5f + VibeEnergy * 0.5f) : 0f;
-        float target = BPM > 0f ? Mathf.Max(floor, curved) : 0f;
-        _smoothedAmplitude = Mathf.Lerp(_smoothedAmplitude, target, Time.deltaTime * amplitudeSmoothing);
+        bool  hasEnergy = Energy > minEnergyToNod;
+        float floor  = hasEnergy ? minAmplitude * (0.5f + VibeEnergy * 0.5f) : 0f;
+        float target = hasEnergy && BPM > 0f ? Mathf.Max(floor, curved) : 0f;
+        float rate   = target < _smoothedAmplitude ? amplitudeDecay : amplitudeSmoothing;
+        _smoothedAmplitude = Mathf.Lerp(_smoothedAmplitude, target, Time.deltaTime * rate);
 
         float vibeAngleScale = Mathf.Lerp(1f, Mathf.Lerp(0.7f, 1.4f, VibeWeight), vibeInfluence);
 
