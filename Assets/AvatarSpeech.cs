@@ -1,4 +1,3 @@
-using SpeechBubble;
 using UnityEngine;
 
 public class AvatarSpeech : MonoBehaviour
@@ -8,10 +7,9 @@ public class AvatarSpeech : MonoBehaviour
     [System.Serializable]
     public class MoodConfig
     {
-        public string           label;
-        public string[]         phrases;
-        public SpeechBubbleType bubbleType;
-        public Color            fillColor;
+        public string     label;
+        public string[]   phrases;
+        public BubbleType bubbleType;
     }
 
     // ── Inspector ─────────────────────────────────────────────────────────────
@@ -19,7 +17,7 @@ public class AvatarSpeech : MonoBehaviour
     [Header("References")]
     public BeatDetector    beatDetector;
     public Transform       avatarHead;
-    [SerializeField] SpeechBubble_TMP _bubble;
+    [SerializeField] CustomBubble _bubble;
 
     [Header("Moods")]
     public MoodConfig[] moods =
@@ -27,8 +25,7 @@ public class AvatarSpeech : MonoBehaviour
         new()
         {
             label      = "Silence",
-            bubbleType = SpeechBubbleType.Think,
-            fillColor  = new Color(0.85f, 0.80f, 0.95f),
+            bubbleType = BubbleType.Thought,
             phrases    = new[]
             {
                 "hm...", "...", "what's next?", "zoning out...", "just vibing",
@@ -40,21 +37,19 @@ public class AvatarSpeech : MonoBehaviour
         new()
         {
             label      = "Quiet",
-            bubbleType = SpeechBubbleType.Whisper,
-            fillColor  = new Color(0.80f, 0.90f, 0.98f),
+            bubbleType = BubbleType.Normal,
             phrases    = new[]
             {
-                "nice and easy", "soft vibes~", "chill", "mellow", "low key",
+                "nice and easy", "soft vibes", "chill", "mellow", "low key",
                 "late night energy", "smooth", "sunday morning feel", "no rush",
                 "float with it", "real gentle", "good for the soul",
-                "bedroom vibes", "this calms me", "mmm~",
+                "bedroom vibes", "this calms me", "mmm",
             },
         },
         new()
         {
             label      = "Vibing",
-            bubbleType = SpeechBubbleType.Note,
-            fillColor  = new Color(0.80f, 0.95f, 0.80f),
+            bubbleType = BubbleType.Normal,
             phrases    = new[]
             {
                 "ok I feel this", "this slaps", "vibing rn", "good groove", "head bobbin'",
@@ -67,8 +62,7 @@ public class AvatarSpeech : MonoBehaviour
         new()
         {
             label      = "Hype",
-            bubbleType = SpeechBubbleType.Yell,
-            fillColor  = new Color(1.00f, 0.92f, 0.40f),
+            bubbleType = BubbleType.Hype,
             phrases    = new[]
             {
                 "LET'S GO!", "this is a BOP", "!!!", "FIRE", "ok ok ok",
@@ -80,8 +74,7 @@ public class AvatarSpeech : MonoBehaviour
         new()
         {
             label      = "Intense",
-            bubbleType = SpeechBubbleType.Stress,
-            fillColor  = new Color(1.00f, 0.60f, 0.50f),
+            bubbleType = BubbleType.Hype,
             phrases    = new[]
             {
                 "OHHHHH!!", "INTENSE", "can't stop", "MAX POWER", "WOOOO",
@@ -93,14 +86,14 @@ public class AvatarSpeech : MonoBehaviour
     };
 
     [Header("Session End")]
-    [Range(2f, 15f)] public float sessionEndDelay    = 4f;
-    [Range(10f, 120f)] public float minPlayTimeForEnd = 30f;
+    [Range(2f, 15f)]   public float sessionEndDelay    = 4f;
+    [Range(10f, 120f)] public float minPlayTimeForEnd  = 30f;
     public string[] sessionEndPhrases =
     {
-        "that was a vibe~", "good session", "nice jam~", "that was it right there",
-        "needed that", "ok that was good", "solid session~",
+        "that was a vibe", "good session", "nice jam", "that was it right there",
+        "needed that", "ok that was good", "solid session",
         "that playlist did not miss", "well played", "coming back to that one",
-        "ok I fw that", "that one fed my soul", "chef's kiss session~",
+        "ok I fw that", "that one fed my soul", "chef's kiss session",
     };
 
     [Header("Drop Reaction")]
@@ -110,15 +103,29 @@ public class AvatarSpeech : MonoBehaviour
         "felt that", "ok ok OK", "bro...", "THE BASS", "I felt my soul leave",
     };
 
+    [Header("Opening")]
+    [Range(0f, 5f)] public float openingDelay = 1.5f;
+    public string[] openingPhrases =
+    {
+        "what's up", "hey", "oh hey!", "sup", "yo",
+        "hey there", "ready when you are", "oh, you opened me",
+    };
+
+    [Header("Mood Thresholds")]
+    [Range(0f, 1f)]    public float vibeIntense   = 0.75f;
+    [Range(50f, 300f)] public float bpmIntense    = 150f;
+    [Range(0f, 1f)]    public float vibeHype      = 0.45f;
+    [Range(0f, 1f)]    public float vibeVibing    = 0.20f;
+    [Range(0f, 0.1f)]  public float energySilence = 0.001f;
+
     [Header("Timing")]
-    [Range(1f, 10f)]   public float showDuration      = 3.5f;
-    [Range(1f, 15f)]   public float greetingDuration  = 6f;
-    [Range(5f, 120f)]  public float minCooldown       = 20f;
-    [Range(10f, 300f)] public float maxCooldown       = 60f;
-    [Range(1, 10)]     public int   maxShowsPerSession  = 2;
-    [Range(30f, 600f)] public float sessionDuration    = 180f;
+    [Range(1f, 10f)]   public float showDuration       = 3.5f;
+    [Range(1f, 15f)]   public float greetingDuration   = 6f;
+    [Range(5f, 120f)]  public float minCooldown        = 20f;
+    [Range(10f, 300f)] public float maxCooldown        = 60f;
+    [Range(5f, 30f)]   public float silenceGracePeriod = 15f;
     [Range(0f, 1f)]    public float silenceProbability = 0.1f;
-    [Range(1f, 24f)]   public float newSessionHours   = 6f;
+    [Range(1f, 24f)]   public float newSessionHours    = 6f;
 
     [Header("Positioning")]
     [Range(0f, 300f)] public float topDistance    = 60f;
@@ -129,8 +136,8 @@ public class AvatarSpeech : MonoBehaviour
     [Range(1, 30)] public int beenAWhileDays = 3;
     public string[] beenAWhilePhrases =
     {
-        "oh you're back~", "thought you forgot about me", "it's been a minute!",
-        "where have you been??", "finally! I missed the music", "you came back~",
+        "oh you're back!", "thought you forgot about me", "it's been a minute!",
+        "where have you been??", "finally! I missed the music", "you came back",
         "long time no vibe", "was starting to worry ngl",
     };
 
@@ -142,68 +149,68 @@ public class AvatarSpeech : MonoBehaviour
     };
     public string[] christmasPhrases =
     {
-        "happy holidays~", "it's giving christmas energy", "festive vibes~",
-        "tis the season!!", "christmas playlist activated", "holiday mode on~",
+        "happy holidays!", "it's giving christmas energy", "festive vibes",
+        "tis the season!!", "christmas playlist activated", "holiday mode on",
     };
     public string[] newYearPhrases =
     {
-        "HAPPY NEW YEAR!!", "new year new vibes~", "we made it!!",
+        "HAPPY NEW YEAR!!", "new year new vibes", "we made it!!",
         "new year energy hits different", "fresh start fresh playlist",
-        "365 days of music ahead~",
+        "365 days of music ahead",
     };
     public string[] valentinePhrases =
     {
-        "happy valentine's day~", "love is in the air~",
-        "valentines day vibes", "spreading love through music~",
-        "the most romantic playlist~",
+        "happy valentine's day!", "love is in the air",
+        "valentines day vibes", "spreading love through music",
+        "the most romantic playlist",
     };
 
     [Header("Long Session")]
     [Range(30f, 300f)] public float longSessionMinutes = 120f;
     public string[] longSessionPhrases =
     {
-        "we've been at this for a while~", "hours of music fr", "still going strong",
-        "dedication~", "we don't stop", "this is a marathon session",
+        "we've been at this for a while", "hours of music fr", "still going strong",
+        "dedication", "we don't stop", "this is a marathon session",
         "still here still vibing", "no skip button today huh",
     };
 
     [Header("Time Awareness")]
     public string[] morningPhrases =
     {
-        "morning vibes~", "rise and grind I guess", "good morning~",
+        "morning vibes", "rise and grind I guess", "good morning",
         "starting the day right", "morning session let's go", "early bird energy",
     };
     public string[] afternoonPhrases =
     {
-        "afternoon session", "midday mood~", "keeping the energy up",
-        "good afternoon~", "perfect time for music", "afternoon reset",
+        "afternoon session", "midday mood", "keeping the energy up",
+        "good afternoon", "perfect time for music", "afternoon reset",
     };
     public string[] eveningPhrases =
     {
-        "evening vibes~", "winding down nicely", "evening session~",
-        "the evening playlist hits different", "good evening~", "end of day energy",
+        "evening vibes", "winding down nicely", "evening session",
+        "the evening playlist hits different", "good evening", "end of day energy",
     };
     public string[] lateNightPhrases =
     {
-        "late night session~", "it's giving midnight energy", "who else is up rn",
+        "late night session", "it's giving midnight energy", "who else is up rn",
         "the late night playlist hits different", "night owl hours",
-        "past my bedtime but the music is too good", "late night mood~",
+        "past my bedtime but the music is too good", "late night mood",
     };
     public string[] fridayPhrases =
     {
-        "HAPPY FRIDAY!!", "it's fridayyy~", "friday energy is unmatched",
+        "HAPPY FRIDAY!!", "it's fridayyy!", "friday energy is unmatched",
         "weekend is almost here!!", "TGIF fr", "friday playlist activated",
     };
     public string[] weekendPhrases =
     {
-        "weekend mode activated~", "no alarms today~", "this is the life",
+        "weekend mode activated", "no alarms today", "this is the life",
         "weekend energy different", "saturdays are for the music",
-        "sunday funday~", "living my best life rn",
+        "sunday funday!", "living my best life rn",
     };
     public string[] mondayPhrases =
     {
         "monday... at least there's music", "music makes mondays survivable",
-        "it's giving monday but make it bearable", "monday reset~",
+        "it's giving monday but make it bearable", "monday reset",
         "new week new playlist", "mondays hit different with good music",
     };
 
@@ -213,8 +220,8 @@ public class AvatarSpeech : MonoBehaviour
     float         _showTimer;
     float         _cooldown;
     bool          _isShowing;
-    int           _sessionShowCount;
-    float         _sessionTimer;
+    bool          _hasOpened;
+    float         _openingTimer;
     bool          _hasGreeted;
     float         _musicStartTimer;
     bool          _beenAWhile;
@@ -224,7 +231,9 @@ public class AvatarSpeech : MonoBehaviour
     bool          _prevMusicPlaying;
     float         _musicStopTimer;
     bool          _sessionEndFired;
-    float         _continuousPlayTime;
+    float         _silenceTimer;
+    string        _lastPhrase;
+    readonly int[] _moodCounts = new int[5];
 
     enum Mood { Silence, Quiet, Vibing, Hype, Intense }
 
@@ -234,12 +243,8 @@ public class AvatarSpeech : MonoBehaviour
     {
         if (_bubble)
         {
-            _bubbleRect           = _bubble.GetComponent<RectTransform>();
-            _bubbleRect.anchorMin = new Vector2(0f,   0.5f);
-            _bubbleRect.anchorMax = new Vector2(1f,   0.5f);
-            _bubbleRect.pivot     = new Vector2(0.5f, 0.5f);
-            _bubbleRect.sizeDelta = new Vector2(0f,   300f);
-            _bubble.transform.localScale = Vector3.zero;
+            _bubbleRect = _bubble.GetComponent<RectTransform>();
+            _bubble.Hide();
         }
     }
 
@@ -259,6 +264,7 @@ public class AvatarSpeech : MonoBehaviour
     void Update()
     {
         UpdatePosition();
+        UpdateOpening();
         UpdateTimeGreeting();
 
         if (_isShowing)
@@ -266,13 +272,6 @@ public class AvatarSpeech : MonoBehaviour
             _showTimer -= Time.deltaTime;
             if (_showTimer <= 0f) HideBubble();
             return;
-        }
-
-        _sessionTimer += Time.deltaTime;
-        if (_sessionTimer >= sessionDuration)
-        {
-            _sessionTimer     = 0f;
-            _sessionShowCount = 0;
         }
 
         if (!_hasGreeted) return;
@@ -283,24 +282,25 @@ public class AvatarSpeech : MonoBehaviour
             CheckNewSession();
         _prevMusicPlaying = musicPlaying;
 
+        if (musicPlaying) _silenceTimer  = 0f;
+        else              _silenceTimer += Time.deltaTime;
+
         if (musicPlaying)
         {
-            _totalPlayTime       += Time.deltaTime;
-            _continuousPlayTime  += Time.deltaTime;
-            _musicWasPlaying      = true;
-            _musicStopTimer       = 0f;
-            _sessionEndFired      = false;
+            _totalPlayTime   += Time.deltaTime;
+            _musicWasPlaying  = true;
+            _musicStopTimer   = 0f;
+            _sessionEndFired  = false;
         }
         else if (_musicWasPlaying)
         {
-            _musicStopTimer     += Time.deltaTime;
-            _continuousPlayTime  = 0f;
+            _musicStopTimer += Time.deltaTime;
 
             if (!_sessionEndFired && _musicStopTimer >= sessionEndDelay
                 && _totalPlayTime >= minPlayTimeForEnd)
             {
-                _sessionEndFired  = true;
-                _musicWasPlaying  = false;
+                _sessionEndFired = true;
+                _musicWasPlaying = false;
                 ShowSessionEndBubble();
                 return;
             }
@@ -314,23 +314,47 @@ public class AvatarSpeech : MonoBehaviour
         }
 
         _cooldown -= Time.deltaTime;
-        if (_cooldown > 0f) return;
-        if (_sessionShowCount >= maxShowsPerSession) return;
 
-        Mood mood = GetCurrentMood();
-
-        if (mood == Mood.Silence && Random.value > silenceProbability)
+        if (_cooldown > 0f)
         {
-            _cooldown = Random.Range(minCooldown, maxCooldown);
+            _moodCounts[(int)GetCurrentMood()]++;
             return;
+        }
+
+        Mood mood = GetDominantMood();
+
+        if (mood == Mood.Silence)
+        {
+            if (_silenceTimer < silenceGracePeriod || Random.value > silenceProbability)
+            {
+                _cooldown = Random.Range(minCooldown, maxCooldown);
+                return;
+            }
         }
 
         ShowBubble(mood);
     }
 
+    void UpdateOpening()
+    {
+        if (_hasOpened || !_bubble || openingPhrases.Length == 0) return;
+
+        _openingTimer += Time.deltaTime;
+        if (_openingTimer < openingDelay) return;
+
+        _hasOpened = true;
+        if (_isShowing) HideBubble();
+
+        _bubble.Show(BubbleType.Thought, PickPhrase(openingPhrases));
+        _bubble.transform.localScale = Vector3.one * bubbleScale;
+        _showTimer = showDuration;
+        _isShowing = true;
+    }
+
     void UpdateTimeGreeting()
     {
         if (_hasGreeted || !_bubble) return;
+        if (!_hasOpened || _isShowing) return;
 
         bool musicPlaying = beatDetector && beatDetector.Energy > 0.01f;
         if (musicPlaying)
@@ -354,11 +378,8 @@ public class AvatarSpeech : MonoBehaviour
         if (phrases == null || phrases.Length == 0) return;
 
         MoodConfig config = moods[(int)Mood.Quiet];
-        if (_isShowing) HideBubble();
 
-        _bubble.setBubbleType(config.bubbleType);
-        _bubble.setDialogueText(phrases[Random.Range(0, phrases.Length)]);
-        _bubble.setFillColor(config.fillColor);
+        _bubble.Show(config.bubbleType, PickPhrase(phrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         PlayerPrefs.SetString("lastGreetingTime", System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
@@ -367,7 +388,6 @@ public class AvatarSpeech : MonoBehaviour
         _showTimer = greetingDuration;
         _cooldown  = Random.Range(minCooldown, maxCooldown);
         _isShowing = true;
-        _sessionShowCount++;
     }
 
     void CheckNewSession()
@@ -382,8 +402,9 @@ public class AvatarSpeech : MonoBehaviour
         {
             _hasGreeted          = false;
             _musicStartTimer     = 0f;
-            _sessionShowCount    = 0;
             _longSessionNotified = false;
+            _totalPlayTime       = 0f;
+            System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
         }
     }
 
@@ -392,7 +413,7 @@ public class AvatarSpeech : MonoBehaviour
         var now  = System.DateTime.Now;
         int hour = now.Hour;
 
-        if (_beenAWhile) return beenAWhilePhrases;
+        if (_beenAWhile) { _beenAWhile = false; return beenAWhilePhrases; }
 
         string[] holiday = GetHolidayPhrases(now);
         if (holiday != null) return holiday;
@@ -424,16 +445,14 @@ public class AvatarSpeech : MonoBehaviour
 
         MoodConfig config = moods[(int)Mood.Vibing];
         if (_isShowing) HideBubble();
+        System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
 
-        _bubble.setBubbleType(config.bubbleType);
-        _bubble.setDialogueText(sessionEndPhrases[Random.Range(0, sessionEndPhrases.Length)]);
-        _bubble.setFillColor(config.fillColor);
+        _bubble.Show(config.bubbleType, PickPhrase(sessionEndPhrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         _showTimer = greetingDuration;
         _cooldown  = Random.Range(minCooldown, maxCooldown);
         _isShowing = true;
-        _sessionShowCount++;
     }
 
     void ShowLongSessionBubble()
@@ -442,31 +461,38 @@ public class AvatarSpeech : MonoBehaviour
 
         MoodConfig config = moods[(int)Mood.Quiet];
         if (_isShowing) HideBubble();
+        System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
 
-        _bubble.setBubbleType(config.bubbleType);
-        _bubble.setDialogueText(longSessionPhrases[Random.Range(0, longSessionPhrases.Length)]);
-        _bubble.setFillColor(config.fillColor);
+        _bubble.Show(config.bubbleType, PickPhrase(longSessionPhrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         _showTimer = greetingDuration;
         _cooldown  = Random.Range(minCooldown, maxCooldown);
         _isShowing = true;
-        _sessionShowCount++;
     }
 
     // ── Logic ─────────────────────────────────────────────────────────────────
 
     Mood GetCurrentMood()
     {
-        if (!beatDetector || beatDetector.Energy < 0.001f) return Mood.Silence;
+        if (!beatDetector || beatDetector.Energy < energySilence) return Mood.Silence;
 
         float vibe = beatDetector.VibeEnergy;
         float bpm  = beatDetector.BPM;
 
-        if (vibe > 0.65f && bpm > 130f) return Mood.Intense;
-        if (vibe > 0.45f)               return Mood.Hype;
-        if (vibe > 0.20f)               return Mood.Vibing;
+        if (vibe > vibeIntense && bpm > bpmIntense) return Mood.Intense;
+        if (vibe > vibeHype)                        return Mood.Hype;
+        if (vibe > vibeVibing)                      return Mood.Vibing;
         return Mood.Quiet;
+    }
+
+    Mood GetDominantMood()
+    {
+        int best = 0;
+        for (int i = 1; i < _moodCounts.Length; i++)
+            if (_moodCounts[i] > _moodCounts[best]) best = i;
+        System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
+        return (Mood)best;
     }
 
     void ShowBubble(Mood mood)
@@ -476,40 +502,44 @@ public class AvatarSpeech : MonoBehaviour
         int        idx    = (int)mood;
         MoodConfig config = idx < moods.Length ? moods[idx] : moods[0];
 
-        _bubble.setBubbleType(config.bubbleType);
-        _bubble.setDialogueText(config.phrases[Random.Range(0, config.phrases.Length)]);
-        _bubble.setFillColor(config.fillColor);
+        _bubble.Show(config.bubbleType, PickPhrase(config.phrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         _showTimer = showDuration;
         _cooldown  = Random.Range(minCooldown, maxCooldown);
         _isShowing = true;
-        _sessionShowCount++;
     }
 
     public void TriggerDrop()
     {
         if (!_bubble || !enabled || dropPhrases.Length == 0) return;
         if (!_hasGreeted) return;
-        if (_sessionShowCount >= maxShowsPerSession) return;
 
         MoodConfig config = moods[(int)Mood.Hype];
         if (_isShowing) HideBubble();
+        System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
 
-        _bubble.setBubbleType(config.bubbleType);
-        _bubble.setDialogueText(dropPhrases[Random.Range(0, dropPhrases.Length)]);
-        _bubble.setFillColor(config.fillColor);
+        _bubble.Show(config.bubbleType, PickPhrase(dropPhrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         _showTimer = showDuration;
         _cooldown  = Random.Range(minCooldown, maxCooldown);
         _isShowing = true;
-        _sessionShowCount++;
+    }
+
+    string PickPhrase(string[] phrases)
+    {
+        if (phrases == null || phrases.Length == 0) return "";
+        string pick = phrases[Random.Range(0, phrases.Length)];
+        if (phrases.Length > 1 && pick == _lastPhrase)
+            pick = phrases[Random.Range(0, phrases.Length)];
+        _lastPhrase = pick;
+        return pick;
     }
 
     void HideBubble()
     {
-        if (_bubble) _bubble.transform.localScale = Vector3.zero;
+        if (_bubble) _bubble.Hide();
         _isShowing = false;
     }
 
