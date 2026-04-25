@@ -529,7 +529,9 @@ public class AvatarSpeech : MonoBehaviour
 
     Mood GetCurrentMood()
     {
-        if (!beatDetector || beatDetector.Energy < energySilence) return Mood.Silence;
+        if (!beatDetector) return Mood.Silence;
+        if (!beatDetector.reactToMusic) return Mood.Quiet;
+        if (beatDetector.Energy < energySilence) return Mood.Silence;
 
         float vibe = beatDetector.VibeEnergy;
         float bpm  = beatDetector.BPM;
