@@ -1,10 +1,12 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using TMPro;
 
 public class SettingsUI : MonoBehaviour
 {
@@ -44,23 +46,37 @@ public class SettingsUI : MonoBehaviour
     [SerializeField] Text        _chatBubbleButtonLabel;
     public           AvatarSpeech avatarSpeech;
 
+    [Header("Monitor")]
+    [SerializeField] TMP_Dropdown _monitorDropdown;
+    [SerializeField] AvatarDrag   _avatarDrag;
+
+    [Header("Mood History")]
+    [SerializeField] MoodHistory _moodHistory;
+    [SerializeField] Button      _clearHistoryButton;
+
     [Header("Timing")]
     [Range(0.1f, 2f)] public float hoverDelay   = 0.8f;
     [Range(0.5f, 3f)] public float fadeOutDelay = 1.5f;
 
-    [DllImport("user32.dll")]
-    static extern bool GetCursorPos(out TransparentWindow.POINT p);
+    [DllImport("user32.dll")] static extern IntPtr  GetActiveWindow();
+    [DllImport("user32.dll")] static extern bool    SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] static extern bool    GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")] static extern bool    EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc callback, IntPtr data);
 
-    GraphicRaycaster _raycaster;
+    delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT { public int left, top, right, bottom; }
+
     public static bool PanelOpen { get; private set; }
     float _hoverTimer;
     float _outTimer;
     bool  _cogVisible;
+    readonly List<RECT> _monitors       = new List<RECT>();
+    MonitorEnumProc     _monitorEnumProc;
 
     void Start()
     {
-        _raycaster = GetComponentInParent<GraphicRaycaster>();
-
         // Rounded panel corners
         if (_panelImage)
         {
@@ -77,6 +93,7 @@ public class SettingsUI : MonoBehaviour
         _closeButton?.onClick.AddListener(TogglePanel);
         _reactButton?.onClick.AddListener(ToggleReactToMusic);
         _chatBubbleButton?.onClick.AddListener(ToggleChatBubble);
+        _clearHistoryButton?.onClick.AddListener(ClearMoodHistory);
 
         // Slider bindings
         if (beatDetector != null)
@@ -99,6 +116,7 @@ public class SettingsUI : MonoBehaviour
 
         RefreshReactButton();
         RefreshChatBubbleButton();
+        PopulateMonitorDropdown();
     }
 
     void Update()
@@ -232,16 +250,19 @@ public class SettingsUI : MonoBehaviour
             _chatBubbleButtonLabel.text = "Chat Bubble: " + (avatarSpeech != null && avatarSpeech.enabled ? "ON" : "OFF");
     }
 
+    // ── Mood History ─────────────────────────────────────────────────────────
+
+    void ClearMoodHistory() => _moodHistory?.ClearHistory();
+
     // ── Hit testing (used by TransparentWindow) ───────────────────────────────
 
     public bool IsPointerOverUI()
     {
-        if (!_raycaster || EventSystem.current == null) return false;
-        GetCursorPos(out TransparentWindow.POINT p);
-        var ped     = new PointerEventData(EventSystem.current)
-                          { position = new Vector2(p.X, Screen.height - p.Y) };
+        if (EventSystem.current == null) return false;
+        var ped = new PointerEventData(EventSystem.current)
+                      { position = TransparentWindow.CursorWindowPos() };
         var results = new List<RaycastResult>();
-        _raycaster.Raycast(ped, results);
+        EventSystem.current.RaycastAll(ped, results);
         return results.Count > 0;
     }
 
@@ -252,10 +273,96 @@ public class SettingsUI : MonoBehaviour
         if (Mouse.current == null) return false;
         Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
 #else
-        GetCursorPos(out TransparentWindow.POINT p);
-        Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, Screen.height - p.Y, 0));
+        Vector2 cp  = TransparentWindow.CursorWindowPos();
+        Ray     ray = Camera.main.ScreenPointToRay(new Vector3(cp.x, cp.y, 0));
 #endif
         return Physics.Raycast(ray) || IsPointerOverUI();
+    }
+
+    // ── Monitor selection ────────────────────────────────────────────────────
+
+    void PopulateMonitorDropdown()
+    {
+        if (!_monitorDropdown) return;
+
+        _monitors.Clear();
+        _monitorEnumProc = (IntPtr hMon, IntPtr hdc, ref RECT rect, IntPtr data) =>
+        {
+            _monitors.Add(rect);
+            return true;
+        };
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, _monitorEnumProc, IntPtr.Zero);
+
+        _monitorDropdown.ClearOptions();
+        var options = new List<TMP_Dropdown.OptionData>();
+        for (int i = 0; i < _monitors.Count; i++)
+        {
+            RECT r = _monitors[i];
+            options.Add(new TMP_Dropdown.OptionData($"Monitor {i + 1} ({r.right - r.left}x{r.bottom - r.top})"));
+        }
+        _monitorDropdown.AddOptions(options);
+
+        int current = DetectCurrentMonitor();
+        _monitorDropdown.SetValueWithoutNotify(current);
+        PlayerPrefs.SetInt("monitor", current);
+        PlayerPrefs.Save();
+        _monitorDropdown.onValueChanged.AddListener(OnMonitorChanged);
+    }
+
+    int DetectCurrentMonitor()
+    {
+        if (_monitors.Count == 0) return 0;
+        if (!GetWindowRect(GetActiveWindow(), out RECT wr)) return 0;
+        int cx = (wr.left + wr.right) / 2;
+        int cy = (wr.top  + wr.bottom) / 2;
+        for (int i = 0; i < _monitors.Count; i++)
+        {
+            RECT r = _monitors[i];
+            if (cx >= r.left && cx < r.right && cy >= r.top && cy < r.bottom)
+                return i;
+        }
+        return 0;
+    }
+
+    void OnMonitorChanged(int index)
+    {
+        PlayerPrefs.SetInt("monitor", index);
+        PlayerPrefs.Save();
+#if !UNITY_EDITOR
+        Vector2 rel = GetAvatarNormalizedPos();
+        MoveToMonitor(index);
+        StartCoroutine(SnapAvatarAfterMove(rel));
+#endif
+    }
+
+    void MoveToMonitor(int index)
+    {
+        if (index < 0 || index >= _monitors.Count) return;
+        RECT   r  = _monitors[index];
+        IntPtr hw = GetActiveWindow();
+        SetWindowPos(hw, IntPtr.Zero, r.left, r.top, r.right - r.left, r.bottom - r.top, 0x0040);
+    }
+
+    Vector2 GetAvatarNormalizedPos()
+    {
+        if (!_avatarDrag || !_avatarDrag.avatarRoot || !Camera.main) return new Vector2(0.5f, 0.2f);
+        Vector3 sp = Camera.main.WorldToScreenPoint(_avatarDrag.avatarRoot.position);
+        return new Vector2(sp.x / Screen.width, sp.y / Screen.height);
+    }
+
+    IEnumerator SnapAvatarAfterMove(Vector2 rel)
+    {
+        yield return null;
+        if (!_avatarDrag || !_avatarDrag.avatarRoot || !Camera.main) yield break;
+
+        Transform root  = _avatarDrag.avatarRoot;
+        float     depth = Camera.main.WorldToScreenPoint(root.position).z;
+        root.position   = Camera.main.ScreenToWorldPoint(
+            new Vector3(rel.x * Screen.width, rel.y * Screen.height, depth));
+
+        PlayerPrefs.SetFloat("avatarPosX", root.position.x);
+        PlayerPrefs.SetFloat("avatarPosY", root.position.y);
+        PlayerPrefs.Save();
     }
 
     // ── Dev utilities ────────────────────────────────────────────────────────
@@ -268,6 +375,7 @@ public class SettingsUI : MonoBehaviour
         PlayerPrefs.DeleteKey("chatBubble");
         PlayerPrefs.DeleteKey("avatarPosX");
         PlayerPrefs.DeleteKey("avatarPosY");
+        PlayerPrefs.DeleteKey("monitor");
         PlayerPrefs.Save();
         Debug.Log("Saved settings cleared.");
     }

@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.Runtime.InteropServices;
 
 public class EyeTracking : MonoBehaviour
 {
@@ -15,8 +14,6 @@ public class EyeTracking : MonoBehaviour
     Vector3 _rightInitialLocal;
     Vector3 _blinkInitialLocal;
     bool    _initialized;
-
-    [DllImport("user32.dll")] static extern bool GetCursorPos(out TransparentWindow.POINT lpPoint);
 
     void Update()
     {
@@ -34,9 +31,9 @@ public class EyeTracking : MonoBehaviour
             ? (leftEye.position + rightEye.position) * 0.5f
             : transform.position;
 
-        Vector3 dir      = (mouseWorld - center).normalized;
-        float   offsetX  = Mathf.Clamp(Vector3.Dot(dir, Camera.main.transform.right), -1f, 1f) * maxOffset;
-        float   offsetY  = Mathf.Clamp(Vector3.Dot(dir, Camera.main.transform.up),    -1f, 1f) * maxOffset;
+        Vector3 dir          = (mouseWorld - center).normalized;
+        float   offsetX      = Mathf.Clamp(Vector3.Dot(dir, Camera.main.transform.right), -1f, 1f) * maxOffset;
+        float   offsetY      = Mathf.Clamp(Vector3.Dot(dir, Camera.main.transform.up),    -1f, 1f) * maxOffset;
         Vector3 screenOffset = Camera.main.transform.right * offsetX + Camera.main.transform.up * offsetY;
 
         if (leftPupil)
@@ -58,9 +55,8 @@ public class EyeTracking : MonoBehaviour
 
     Vector3 MouseToWorldPoint()
     {
-        GetCursorPos(out TransparentWindow.POINT p);
-        float screenY = Screen.height - p.Y;
-        float depth   = Camera.main.WorldToScreenPoint(transform.position).z;
-        return Camera.main.ScreenToWorldPoint(new Vector3(p.X, screenY, depth));
+        Vector2 cp    = TransparentWindow.CursorWindowPos();
+        float   depth = Camera.main.WorldToScreenPoint(transform.position).z;
+        return Camera.main.ScreenToWorldPoint(new Vector3(cp.x, cp.y, depth));
     }
 }

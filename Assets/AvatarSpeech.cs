@@ -17,7 +17,8 @@ public class AvatarSpeech : MonoBehaviour
     [Header("References")]
     public BeatDetector    beatDetector;
     public Transform       avatarHead;
-    [SerializeField] CustomBubble _bubble;
+    [SerializeField] CustomBubble  _bubble;
+    [SerializeField] MoodHistory   _moodHistory;
 
     [Header("Moods")]
     public MoodConfig[] moods =
@@ -112,11 +113,12 @@ public class AvatarSpeech : MonoBehaviour
     };
 
     [Header("Mood Thresholds")]
-    [Range(0f, 1f)]    public float vibeIntense   = 0.75f;
-    [Range(50f, 300f)] public float bpmIntense    = 150f;
-    [Range(0f, 1f)]    public float vibeHype      = 0.45f;
-    [Range(0f, 1f)]    public float vibeVibing    = 0.20f;
-    [Range(0f, 0.1f)]  public float energySilence = 0.001f;
+    [Range(0f, 1f)]    public float vibeIntense       = 0.75f;
+    [Range(50f, 300f)] public float bpmIntense        = 128f;
+    [Range(0f, 1f)]    public float vibeEscapeIntense = 0.85f;
+    [Range(0f, 1f)]    public float vibeHype          = 0.45f;
+    [Range(0f, 1f)]    public float vibeVibing        = 0.20f;
+    [Range(0f, 0.1f)]  public float energySilence     = 0.001f;
 
     [Header("Timing")]
     [Range(1f, 10f)]   public float showDuration       = 3.5f;
@@ -174,6 +176,28 @@ public class AvatarSpeech : MonoBehaviour
         "still here still vibing", "no skip button today huh",
     };
 
+    [Header("History Reactions")]
+    public string[] streakChillPhrases =
+    {
+        "back for more chill sessions", "you always keep it mellow", "consistent chill energy",
+        "same calm vibe as usual", "low-key as always",
+    };
+    public string[] streakVibingPhrases =
+    {
+        "you've been vibing a lot lately", "your playlists never miss", "consistent taste fr",
+        "same great groove as always", "you always bring the vibe",
+    };
+    public string[] streakHypePhrases =
+    {
+        "always going hard huh", "you always bring the energy", "consistent hype as always",
+        "you don't do low energy", "always on 100",
+    };
+    public string[] longerThanUsualPhrases =
+    {
+        "longer session than usual today", "staying later than normal", "you're really into it today",
+        "extra long session energy", "going past your usual time",
+    };
+
     [Header("Time Awareness")]
     public string[] morningPhrases =
     {
@@ -201,11 +225,15 @@ public class AvatarSpeech : MonoBehaviour
         "HAPPY FRIDAY!!", "it's fridayyy!", "friday energy is unmatched",
         "weekend is almost here!!", "TGIF fr", "friday playlist activated",
     };
-    public string[] weekendPhrases =
+    public string[] saturdayPhrases =
     {
-        "weekend mode activated", "no alarms today", "this is the life",
-        "weekend energy different", "saturdays are for the music",
-        "sunday funday!", "living my best life rn",
+        "saturdays are for the music", "weekend mode activated", "no alarms today",
+        "saturday energy", "this is the life", "living my best life rn",
+    };
+    public string[] sundayPhrases =
+    {
+        "sunday funday!", "sunday reset", "last day of freedom",
+        "sunday playlist hits different", "slow morning energy", "no alarms today",
     };
     public string[] mondayPhrases =
     {
@@ -233,7 +261,9 @@ public class AvatarSpeech : MonoBehaviour
     bool          _sessionEndFired;
     float         _silenceTimer;
     string        _lastPhrase;
-    readonly int[] _moodCounts = new int[5];
+    readonly int[] _moodCounts        = new int[5];
+    readonly int[] _sessionMoodTotals = new int[5];
+    bool           _historyReactionFired;
 
     enum Mood { Silence, Quiet, Vibing, Hype, Intense }
 
@@ -263,9 +293,9 @@ public class AvatarSpeech : MonoBehaviour
 
     void Update()
     {
-        UpdatePosition();
         UpdateOpening();
         UpdateTimeGreeting();
+        UpdatePosition();
 
         if (_isShowing)
         {
@@ -291,6 +321,7 @@ public class AvatarSpeech : MonoBehaviour
             _musicWasPlaying  = true;
             _musicStopTimer   = 0f;
             _sessionEndFired  = false;
+            _sessionMoodTotals[(int)GetCurrentMood()]++;
         }
         else if (_musicWasPlaying)
         {
@@ -311,6 +342,19 @@ public class AvatarSpeech : MonoBehaviour
             _longSessionNotified = true;
             ShowLongSessionBubble();
             return;
+        }
+
+        if (musicPlaying && !_historyReactionFired && _totalPlayTime >= 30f
+            && _moodHistory != null && _moodHistory.HasHistory())
+        {
+            _historyReactionFired = true;
+            int      streak = _moodHistory.GetRecentStreak();
+            string[] pool   = GetHistoryPhrasePool(streak);
+            if (pool != null && pool.Length > 0)
+            {
+                ShowHistoryReactionBubble(streak, pool);
+                return;
+            }
         }
 
         _cooldown -= Time.deltaTime;
@@ -404,7 +448,9 @@ public class AvatarSpeech : MonoBehaviour
             _musicStartTimer     = 0f;
             _longSessionNotified = false;
             _totalPlayTime       = 0f;
-            System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
+            _historyReactionFired = false;
+            System.Array.Clear(_moodCounts,        0, _moodCounts.Length);
+            System.Array.Clear(_sessionMoodTotals, 0, _sessionMoodTotals.Length);
         }
     }
 
@@ -419,8 +465,8 @@ public class AvatarSpeech : MonoBehaviour
         if (holiday != null) return holiday;
 
         if (now.DayOfWeek == System.DayOfWeek.Friday)   return fridayPhrases;
-        if (now.DayOfWeek == System.DayOfWeek.Saturday ||
-            now.DayOfWeek == System.DayOfWeek.Sunday)   return weekendPhrases;
+        if (now.DayOfWeek == System.DayOfWeek.Saturday) return saturdayPhrases;
+        if (now.DayOfWeek == System.DayOfWeek.Sunday)   return sundayPhrases;
         if (now.DayOfWeek == System.DayOfWeek.Monday)   return mondayPhrases;
 
         if (hour >= 5  && hour < 12) return morningPhrases;
@@ -443,9 +489,12 @@ public class AvatarSpeech : MonoBehaviour
     {
         if (!_bubble || sessionEndPhrases.Length == 0) return;
 
+        _moodHistory?.RecordSession(_totalPlayTime, _sessionMoodTotals);
+
         MoodConfig config = moods[(int)Mood.Vibing];
         if (_isShowing) HideBubble();
-        System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
+        System.Array.Clear(_moodCounts,        0, _moodCounts.Length);
+        System.Array.Clear(_sessionMoodTotals, 0, _sessionMoodTotals.Length);
 
         _bubble.Show(config.bubbleType, PickPhrase(sessionEndPhrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
@@ -457,13 +506,18 @@ public class AvatarSpeech : MonoBehaviour
 
     void ShowLongSessionBubble()
     {
-        if (!_bubble || longSessionPhrases.Length == 0) return;
+        bool longerThanUsual = _moodHistory != null
+                            && _moodHistory.IsLongerThanUsual(_totalPlayTime)
+                            && longerThanUsualPhrases.Length > 0;
+        string[] pool = longerThanUsual ? longerThanUsualPhrases : longSessionPhrases;
+        if (!_bubble || pool.Length == 0) return;
 
         MoodConfig config = moods[(int)Mood.Quiet];
         if (_isShowing) HideBubble();
-        System.Array.Clear(_moodCounts, 0, _moodCounts.Length);
+        System.Array.Clear(_moodCounts,        0, _moodCounts.Length);
+        System.Array.Clear(_sessionMoodTotals, 0, _sessionMoodTotals.Length);
 
-        _bubble.Show(config.bubbleType, PickPhrase(longSessionPhrases));
+        _bubble.Show(config.bubbleType, PickPhrase(pool));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         _showTimer = greetingDuration;
@@ -480,8 +534,9 @@ public class AvatarSpeech : MonoBehaviour
         float vibe = beatDetector.VibeEnergy;
         float bpm  = beatDetector.BPM;
 
-        if (vibe > vibeIntense && bpm > bpmIntense) return Mood.Intense;
-        if (vibe > vibeHype)                        return Mood.Hype;
+        if (vibe > vibeEscapeIntense)                return Mood.Intense;
+        if (vibe > vibeIntense && bpm > bpmIntense)  return Mood.Intense;
+        if (vibe > vibeHype)                         return Mood.Hype;
         if (vibe > vibeVibing)                      return Mood.Vibing;
         return Mood.Quiet;
     }
@@ -527,6 +582,36 @@ public class AvatarSpeech : MonoBehaviour
         _isShowing = true;
     }
 
+    void OnApplicationQuit()
+    {
+        if (_totalPlayTime >= 30f)
+            _moodHistory?.RecordSession(_totalPlayTime, _sessionMoodTotals);
+    }
+
+    void ShowHistoryReactionBubble(int streakMoodIndex, string[] pool)
+    {
+        if (!_bubble) return;
+        int        idx    = Mathf.Clamp(streakMoodIndex, 0, moods.Length - 1);
+        MoodConfig config = moods[idx];
+        if (_isShowing) HideBubble();
+
+        _bubble.Show(config.bubbleType, PickPhrase(pool));
+        _bubble.transform.localScale = Vector3.one * bubbleScale;
+
+        _showTimer = greetingDuration;
+        _cooldown  = Random.Range(minCooldown, maxCooldown);
+        _isShowing = true;
+    }
+
+    string[] GetHistoryPhrasePool(int moodIndex) => (Mood)moodIndex switch
+    {
+        Mood.Quiet   => streakChillPhrases,
+        Mood.Vibing  => streakVibingPhrases,
+        Mood.Hype    => streakHypePhrases,
+        Mood.Intense => streakHypePhrases,
+        _            => null,
+    };
+
     string PickPhrase(string[] phrases)
     {
         if (phrases == null || phrases.Length == 0) return "";
@@ -546,7 +631,6 @@ public class AvatarSpeech : MonoBehaviour
     void UpdatePosition()
     {
         if (!_bubbleRect || !avatarHead || !Camera.main) return;
-        if (!_isShowing) return;
 
         Vector3 sp    = Camera.main.WorldToScreenPoint(avatarHead.position);
         float   halfW = Screen.width  * 0.5f;

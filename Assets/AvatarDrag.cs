@@ -71,8 +71,7 @@ public class AvatarDrag : MonoBehaviour
 #if UNITY_EDITOR
         Vector2 sp = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
 #else
-        GetCursorPos(out TransparentWindow.POINT p);
-        Vector2 sp = new Vector2(p.X, Screen.height - p.Y);
+        Vector2 sp = TransparentWindow.CursorWindowPos();
 #endif
         return Camera.main.ScreenToWorldPoint(new Vector3(sp.x, sp.y, depth));
     }
@@ -83,9 +82,8 @@ public class AvatarDrag : MonoBehaviour
         if (Mouse.current == null) return false;
         Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
 #else
-        GetCursorPos(out TransparentWindow.POINT p);
-        float screenY = Screen.height - p.Y;
-        Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, screenY, 0));
+        Vector2 cp  = TransparentWindow.CursorWindowPos();
+        Ray     ray = Camera.main.ScreenPointToRay(new Vector3(cp.x, cp.y, 0));
 #endif
         return Physics.Raycast(ray);
     }

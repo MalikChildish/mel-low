@@ -19,29 +19,37 @@ public class TransparentWindow : MonoBehaviour
     [DllImport("Dwmapi.dll")] static extern uint DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS margins);
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int nIndex);
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT lpPoint);
+    [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
 
     static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     const int  GWL_EXSTYLE              = -20;
     const long WS_EX_LAYERED            = 0x00080000L;
     const long WS_EX_TRANSPARENT        = 0x00000020L;
 
-    IntPtr     _hWnd;
-    bool       _clickThrough;
-    SettingsUI _settingsUI;
+    static IntPtr _hwnd;
+    bool          _clickThrough;
+    SettingsUI    _settingsUI;
+
+    public static Vector2 CursorWindowPos()
+    {
+        GetCursorPos(out POINT p);
+        if (_hwnd != IntPtr.Zero) ScreenToClient(_hwnd, ref p);
+        return new Vector2(p.X, Screen.height - p.Y);
+    }
 
     void Start()
     {
 #if !UNITY_EDITOR
         Application.runInBackground = true;
-        _hWnd = GetActiveWindow();
+        _hwnd = GetActiveWindow();
 
         MARGINS margins = new MARGINS { leftWidth = -1 };
-        DwmExtendFrameIntoClientArea(_hWnd, ref margins);
-        BringWindowToTop(_hWnd);
+        DwmExtendFrameIntoClientArea(_hwnd, ref margins);
+        BringWindowToTop(_hwnd);
 
         int screenW = GetSystemMetrics(0);
         int screenH = GetSystemMetrics(1);
-        SetWindowPos(_hWnd, HWND_TOPMOST, 0, 0, screenW, screenH, 0);
+        SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, screenW, screenH, 0);
 
         SetClickThrough(true);
         _settingsUI = FindObjectOfType<SettingsUI>();
@@ -51,9 +59,8 @@ public class TransparentWindow : MonoBehaviour
     void Update()
     {
 #if !UNITY_EDITOR
-        GetCursorPos(out POINT p);
-        float screenY = Screen.height - p.Y;
-        Ray ray = Camera.main.ScreenPointToRay(new Vector3(p.X, screenY, 0));
+        Vector2 cp  = CursorWindowPos();
+        Ray     ray = Camera.main.ScreenPointToRay(new Vector3(cp.x, cp.y, 0));
         bool overAvatar = Physics.Raycast(ray)
                        || (_settingsUI != null && _settingsUI.IsPointerOverUI())
                        || AvatarDrag.IsDragging;
@@ -62,10 +69,12 @@ public class TransparentWindow : MonoBehaviour
 #endif
     }
 
+    void OnApplicationQuit() => PlayerPrefs.Save();
+
     void SetClickThrough(bool on)
     {
         _clickThrough = on;
         long style = WS_EX_LAYERED | (on ? WS_EX_TRANSPARENT : 0);
-        SetWindowLongPtr(_hWnd, GWL_EXSTYLE, (IntPtr)style);
+        SetWindowLongPtr(_hwnd, GWL_EXSTYLE, (IntPtr)style);
     }
 }
