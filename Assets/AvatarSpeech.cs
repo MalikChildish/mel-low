@@ -19,6 +19,7 @@ public class AvatarSpeech : MonoBehaviour
     public Transform       avatarHead;
     [SerializeField] CustomBubble  _bubble;
     [SerializeField] MoodHistory   _moodHistory;
+    [SerializeField] VolumeWatcher _volumeWatcher;
 
     [Header("Moods")]
     public MoodConfig[] moods =
@@ -176,6 +177,49 @@ public class AvatarSpeech : MonoBehaviour
         "still here still vibing", "no skip button today huh",
     };
 
+    [Header("Volume Reactions")]
+    [Range(0.1f, 0.5f)] public float volumeJumpThreshold = 0.2f;
+    public string[] mutedPhrases =
+    {
+        "did you just mute me??", "hello??", "rude.", "excuse me???", "I can't hear anything",
+    };
+    public string[] unmutedPhrases =
+    {
+        "that's better", "ok we're back", "there we go", "finally", "thank you",
+    };
+    public string[] volumeJumpPhrases =
+    {
+        "ok we're going LOUD", "MY EARS", "oh we turning UP", "HERE WE GO", "WE SAID LOUDER",
+    };
+    public string[] volumeDropPhrases =
+    {
+        "yeah turn that down", "my ears thank you", "little loud back there",
+        "ahh that's better", "we were going a bit hard",
+    };
+
+    [Header("Interactions")]
+    public string[] spinFirstPhrases =
+    {
+        "wheee!", "woooah", "ok then", "we're spinning?", "weeee!",
+    };
+    public string[] spinRepeatPhrases =
+    {
+        "again??", "getting dizzy...", "please stop", "I said STOP", "STOOOP",
+    };
+    public string[] pokeAnnoyedPhrases =
+    {
+        "hey!", "stop that", "excuse me??", "quit it", "I felt that",
+    };
+    public string[] pokeMadPhrases =
+    {
+        "I SAID STOP", "that's it.", "YOU'RE ON MY LAST NERVE", "I will remember this", "ok SERIOUSLY",
+    };
+    public string[] pokeRememberedPhrases =
+    {
+        "I remember what you did", "don't even think about it",
+        "we need to talk about yesterday", "still not over it", "behave yourself today",
+    };
+
     [Header("History Reactions")]
     public string[] streakChillPhrases =
     {
@@ -253,6 +297,12 @@ public class AvatarSpeech : MonoBehaviour
     bool          _hasGreeted;
     float         _musicStartTimer;
     bool          _beenAWhile;
+    bool          _remembersPoked;
+    bool          _prevMuted;
+    float         _prevVolume      = -1f;
+    float         _volumeSnapshot  = -1f;
+    float         _volumeStableTime;
+    bool          _hadMuteReaction;
     float         _totalPlayTime;
     bool          _longSessionNotified;
     bool          _musicWasPlaying;
@@ -288,6 +338,7 @@ public class AvatarSpeech : MonoBehaviour
             _beenAWhile = (System.DateTime.Now - last).TotalDays >= beenAWhileDays;
 
         PlayerPrefs.SetString("lastLaunchDate", System.DateTime.Now.ToString("yyyy-MM-dd"));
+        _remembersPoked = PlayerPrefs.GetInt("pokedMad", 0) == 1;
         PlayerPrefs.Save();
     }
 
@@ -305,6 +356,8 @@ public class AvatarSpeech : MonoBehaviour
         }
 
         if (!_hasGreeted) return;
+
+        UpdateVolumeReactions();
 
         bool musicPlaying = beatDetector && beatDetector.Energy > 0.01f;
 
@@ -459,7 +512,8 @@ public class AvatarSpeech : MonoBehaviour
         var now  = System.DateTime.Now;
         int hour = now.Hour;
 
-        if (_beenAWhile) { _beenAWhile = false; return beenAWhilePhrases; }
+        if (_beenAWhile)     { _beenAWhile = false; return beenAWhilePhrases; }
+        if (_remembersPoked) { _remembersPoked = false; PlayerPrefs.DeleteKey("pokedMad"); PlayerPrefs.Save(); return pokeRememberedPhrases; }
 
         string[] holiday = GetHolidayPhrases(now);
         if (holiday != null) return holiday;
@@ -584,6 +638,62 @@ public class AvatarSpeech : MonoBehaviour
         _isShowing = true;
     }
 
+    void UpdateVolumeReactions()
+    {
+        if (_volumeWatcher == null) return;
+
+        float vol   = _volumeWatcher.Volume;
+        bool  muted = _volumeWatcher.IsMuted;
+
+        // System mute toggled
+        if (muted != _prevMuted)
+        {
+            _prevMuted = muted;
+            if (muted && _musicWasPlaying)
+            {
+                _hadMuteReaction = true;
+                ShowVolumeBubble(mutedPhrases);
+            }
+            else if (!muted && _hadMuteReaction)
+            {
+                _hadMuteReaction = false;
+                ShowVolumeBubble(unmutedPhrases);
+            }
+        }
+
+        // Volume change detection against a stable snapshot
+        if (!muted)
+        {
+            bool moving = _prevVolume >= 0f && Mathf.Abs(vol - _prevVolume) > 0.005f;
+            _volumeStableTime = moving ? 0f : _volumeStableTime + Time.deltaTime;
+
+            if (_volumeSnapshot < 0f || _volumeStableTime >= 2f)
+                _volumeSnapshot = vol;
+
+            if (_volumeSnapshot >= 0f && Mathf.Abs(vol - _volumeSnapshot) >= volumeJumpThreshold)
+            {
+                if (vol > _volumeSnapshot) ShowVolumeBubble(volumeJumpPhrases);
+                else                       ShowVolumeBubble(volumeDropPhrases);
+                _volumeSnapshot = vol;
+            }
+        }
+
+        _prevVolume = vol;
+    }
+
+    void ShowVolumeBubble(string[] pool)
+    {
+        if (!_bubble || pool == null || pool.Length == 0) return;
+        if (_isShowing) HideBubble();
+
+        _bubble.Show(BubbleType.Normal, PickPhrase(pool));
+        _bubble.transform.localScale = Vector3.one * bubbleScale;
+
+        _showTimer = showDuration;
+        _cooldown  = Random.Range(minCooldown, maxCooldown);
+        _isShowing = true;
+    }
+
     void OnApplicationQuit()
     {
         if (_totalPlayTime >= 30f)
@@ -613,6 +723,40 @@ public class AvatarSpeech : MonoBehaviour
         Mood.Intense => streakHypePhrases,
         _            => null,
     };
+
+    public void TriggerSpin(int spinCount)
+    {
+        if (!_bubble || !enabled) return;
+        string[] pool = spinCount <= 1 ? spinFirstPhrases : spinRepeatPhrases;
+        if (pool.Length == 0) return;
+
+        MoodConfig config = moods[(int)Mood.Hype];
+        if (_isShowing) HideBubble();
+
+        _bubble.Show(config.bubbleType, PickPhrase(pool));
+        _bubble.transform.localScale = Vector3.one * bubbleScale;
+
+        _showTimer = showDuration;
+        _cooldown  = Random.Range(minCooldown, maxCooldown);
+        _isShowing = true;
+    }
+
+    public void TriggerPoke(int tier)
+    {
+        if (!_bubble || !enabled) return;
+        string[]   pool    = tier >= 2 ? pokeMadPhrases : pokeAnnoyedPhrases;
+        BubbleType bubType = tier >= 2 ? BubbleType.Hype : BubbleType.Normal;
+        if (pool.Length == 0) return;
+
+        if (_isShowing) HideBubble();
+
+        _bubble.Show(bubType, PickPhrase(pool));
+        _bubble.transform.localScale = Vector3.one * bubbleScale;
+
+        _showTimer = showDuration;
+        _cooldown  = Random.Range(minCooldown, maxCooldown);
+        _isShowing = true;
+    }
 
     string PickPhrase(string[] phrases)
     {

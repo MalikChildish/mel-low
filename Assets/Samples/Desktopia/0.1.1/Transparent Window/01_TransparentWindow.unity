@@ -5666,6 +5666,7 @@ GameObject:
   - component: {fileID: 1730638382325397135}
   - component: {fileID: 1730638382325397136}
   - component: {fileID: 1730638382325397137}
+  - component: {fileID: 1730638382325397138}
   m_Layer: 0
   m_Name: Mellow_Rigged
   m_TagString: Untagged
@@ -5861,6 +5862,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AvatarDrag
   avatarRoot: {fileID: 1730638382325397122}
+  _avatarSpeech: {fileID: 1730638382325397136}
+  spinDuration: 0.6
+  spinCooldown: 2
+  pokeResetTime: 3
 --- !u!114 &1730638382325397135
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5895,6 +5900,7 @@ MonoBehaviour:
   avatarHead: {fileID: 3668370321995678849}
   _bubble: {fileID: 1512978574}
   _moodHistory: {fileID: 1730638382325397137}
+  _volumeWatcher: {fileID: 1730638382325397138}
   moods:
   - label: Silence
     phrases:
@@ -5965,7 +5971,7 @@ MonoBehaviour:
     - losing my mind rn
     - THE BASS
     - pure energy
-    - ok I need to sit down
+    - ok this is fire
     - TOO GOOD
     bubbleType: 2
   - label: Intense
@@ -6086,6 +6092,60 @@ MonoBehaviour:
   - this is a marathon session
   - still here still vibing
   - no skip button today huh
+  volumeJumpThreshold: 0.2
+  mutedPhrases:
+  - did you just mute me??
+  - hello??
+  - rude.
+  - excuse me???
+  - I can't hear anything
+  unmutedPhrases:
+  - that's better
+  - ok we're back
+  - there we go
+  - finally
+  - thank you
+  volumeJumpPhrases:
+  - ok we're going LOUD
+  - MY EARS
+  - oh we turning UP
+  - HERE WE GO
+  - LOUDER
+  volumeDropPhrases:
+  - yeah turn that down
+  - my ears thank you
+  - little loud back there
+  - ahh that's better
+  spinFirstPhrases:
+  - wheee!
+  - woooah
+  - ok then
+  - we're spinning?
+  - weeee!
+  spinRepeatPhrases:
+  - again??
+  - getting dizzy...
+  - please stop
+  - I said STOP
+  - STOOOP
+  pokeAnnoyedPhrases:
+  - hey!
+  - stop that
+  - excuse me??
+  - quit it
+  - I felt that
+  pokeMadPhrases:
+  - I SAID STOP
+  - that's it.
+  - YOU'RE ON MY LAST NERVE
+  - I will remember this
+  - ok SERIOUSLY
+  pokeRememberedPhrases:
+  - I remember what you did
+  - don't even think about it
+  - we need to talk about yesterday
+  - still not over it
+  - behave yourself today
   streakChillPhrases:
   - back for more chill sessions
   - you always keep it mellow
@@ -6179,6 +6239,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78170b9bf7e0ba340bc5f4a9cfb0cb82, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MoodHistory
+--- !u!114 &1730638382325397138
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1391514277589363768}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1157f36d3a984f428852a0ac18fdfd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VolumeWatcher
+  pollFrames: 5
 --- !u!1 &1968665866468277916
 GameObject:
   m_ObjectHideFlags: 0

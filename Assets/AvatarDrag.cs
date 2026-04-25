@@ -1,22 +1,42 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections;
 using System.Runtime.InteropServices;
 
 public class AvatarDrag : MonoBehaviour
 {
     public Transform avatarRoot;
 
+    [Header("Interactions")]
+    [SerializeField] AvatarSpeech _avatarSpeech;
+    [Range(0.3f, 5f)] public float spinDuration  = 0.6f;
+    [Range(0.5f, 5f)] public float spinCooldown  = 2f;
+    [Range(1f,  10f)] public float pokeResetTime = 3f;
+
     public static bool IsDragging { get; private set; }
 
     [DllImport("user32.dll")] static extern bool  GetCursorPos(out TransparentWindow.POINT p);
     [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vKey);
 
-    const int VK_LBUTTON = 0x01;
+    const int VK_LBUTTON  = 0x01;
+    const int VK_LCONTROL = 0xA2;
+    const int VK_S        = 0x53;
+    const int VK_M        = 0x4D;
 
     Animator _animator;
     bool     _rootMotionDisabled;
     Vector3  _dragOffset;
+    Vector3  _dragStartPos;
     bool     _prevButtonDown;
+
+    int   _spinCount;
+    float _spinCooldownTimer;
+    bool  _prevSpinCombo;
+    bool  _isSpinning;
+
+    int   _pokeCount;
+    float _pokeTimer;
+    bool  _pokeMadFired;
 
     void Start()
     {
@@ -41,29 +61,93 @@ public class AvatarDrag : MonoBehaviour
             _rootMotionDisabled = true;
         }
 
-        bool buttonDown  = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-        bool justPressed = buttonDown && !_prevButtonDown;
-        _prevButtonDown  = buttonDown;
+        bool buttonDown   = IsKeyDown(VK_LBUTTON);
+        bool justPressed  = buttonDown && !_prevButtonDown;
+        bool justReleased = !buttonDown && _prevButtonDown;
+        _prevButtonDown   = buttonDown;
+
+        UpdateSpinHotkey();
+
+        if (_pokeTimer > 0f)
+        {
+            _pokeTimer -= Time.deltaTime;
+            if (_pokeTimer <= 0f) { _pokeCount = 0; _pokeMadFired = false; }
+        }
 
         if (justPressed && !SettingsUI.PanelOpen && IsOverAvatar())
         {
-            IsDragging  = true;
-            _dragOffset = avatarRoot.position - CursorWorldPos();
+            IsDragging     = true;
+            _dragStartPos  = avatarRoot.position;
+            _dragOffset    = avatarRoot.position - CursorWorldPos();
         }
 
-        if (IsDragging && !buttonDown)
+        if (justReleased && IsDragging)
         {
             PlayerPrefs.SetFloat("avatarPosX", avatarRoot.position.x);
             PlayerPrefs.SetFloat("avatarPosY", avatarRoot.position.y);
             PlayerPrefs.Save();
+
+            if (Vector3.Distance(avatarRoot.position, _dragStartPos) < 0.05f)
+                HandlePoke();
         }
 
-        if (!buttonDown)
-            IsDragging = false;
-
-        if (IsDragging && buttonDown)
-            avatarRoot.position = CursorWorldPos() + _dragOffset;
+        if (!buttonDown)    IsDragging = false;
+        if (IsDragging && buttonDown) avatarRoot.position = CursorWorldPos() + _dragOffset;
     }
+
+    void UpdateSpinHotkey()
+    {
+        bool combo        = IsKeyDown(VK_LCONTROL) && IsKeyDown(VK_S) && IsKeyDown(VK_M);
+        bool justActivated = combo && !_prevSpinCombo;
+        _prevSpinCombo    = combo;
+
+        if (_spinCooldownTimer > 0f) _spinCooldownTimer -= Time.deltaTime;
+
+        if (justActivated && _spinCooldownTimer <= 0f && !_isSpinning)
+        {
+            _spinCount++;
+            _spinCooldownTimer = spinCooldown;
+            _avatarSpeech?.TriggerSpin(_spinCount);
+            StartCoroutine(SpinAvatar());
+        }
+    }
+
+    void HandlePoke()
+    {
+        _pokeTimer = pokeResetTime;
+        _pokeCount++;
+
+        if (!_pokeMadFired && _pokeCount >= 10)
+        {
+            _pokeMadFired = true;
+            PlayerPrefs.SetInt("pokedMad", 1);
+            PlayerPrefs.Save();
+            _avatarSpeech?.TriggerPoke(2);
+        }
+        else if (_pokeCount == 5)
+        {
+            _avatarSpeech?.TriggerPoke(1);
+        }
+    }
+
+    IEnumerator SpinAvatar()
+    {
+        _isSpinning = true;
+        float     elapsed  = 0f;
+        Quaternion startRot = avatarRoot.rotation;
+
+        while (elapsed < spinDuration)
+        {
+            elapsed += Time.deltaTime;
+            avatarRoot.rotation = startRot * Quaternion.Euler(0f, 360f * (elapsed / spinDuration), 0f);
+            yield return null;
+        }
+
+        avatarRoot.rotation = startRot;
+        _isSpinning = false;
+    }
+
+    static bool IsKeyDown(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
 
     Vector3 CursorWorldPos()
     {
