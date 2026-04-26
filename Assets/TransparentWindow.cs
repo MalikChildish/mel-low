@@ -20,6 +20,11 @@ public class TransparentWindow : MonoBehaviour
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int nIndex);
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT lpPoint);
     [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+    [DllImport("user32.dll")] static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+    const int  GWL_STYLE      = -16;
+    const long WS_MINIMIZEBOX = 0x00020000L;
+    const long WS_SYSMENU     = 0x00080000L;
 
     static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     const int  GWL_EXSTYLE              = -20;
@@ -45,6 +50,10 @@ public class TransparentWindow : MonoBehaviour
 
         MARGINS margins = new MARGINS { leftWidth = -1 };
         DwmExtendFrameIntoClientArea(_hwnd, ref margins);
+
+        long winStyle = (long)GetWindowLongPtr(_hwnd, GWL_STYLE);
+        SetWindowLongPtr(_hwnd, GWL_STYLE, (IntPtr)(winStyle | WS_MINIMIZEBOX | WS_SYSMENU));
+
         BringWindowToTop(_hwnd);
 
         int screenW = GetSystemMetrics(0);

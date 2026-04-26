@@ -202,7 +202,7 @@ These are areas where Mel-Low is intentionally limited in scope or technically c
 
 ## Contributing
 
-Pull requests are welcome. For larger changes please hop into my Discord to discuss.
+Pull requests are welcome. For larger changes please contact me or hop into my Discord to discuss: https://linktr.ee/malikallen 
 
 When contributing new phrases, keep them short (under 6 words where possible), mood-appropriate, and platform-agnostic.
 
