@@ -12,6 +12,12 @@ public class AvatarDrag : MonoBehaviour
     [Range(0.3f, 5f)] public float spinDuration  = 0.6f;
     [Range(0.5f, 5f)] public float spinCooldown  = 2f;
     [Range(1f,  10f)] public float pokeResetTime = 3f;
+    [Range(5f,  30f)] public float holdTime      = 10f;
+
+    [Header("Drag Lean")]
+    [Range(0f,  30f)] public float leanMaxAngle = 18f;
+    [Range(0.5f, 6f)] public float leanVelScale  = 4f;
+    [Range(1f,  20f)] public float leanSmooth    = 5f;
 
     public static bool IsDragging { get; private set; }
 
@@ -38,6 +44,12 @@ public class AvatarDrag : MonoBehaviour
     float _pokeTimer;
     bool  _pokeMadFired;
 
+    float      _holdTimer;
+    bool       _holdReactionFired;
+    Vector3    _prevCursorWorld;
+    float      _leanX;
+    Quaternion _dragBaseRot;
+
     void Start()
     {
         if (avatarRoot)
@@ -49,6 +61,8 @@ public class AvatarDrag : MonoBehaviour
                     PlayerPrefs.GetFloat("avatarPosY"),
                     avatarRoot.position.z);
         }
+        _prevCursorWorld = CursorWorldPos();
+        _dragBaseRot     = avatarRoot.rotation;
     }
 
     void LateUpdate()
@@ -76,9 +90,11 @@ public class AvatarDrag : MonoBehaviour
 
         if (justPressed && !SettingsUI.PanelOpen && IsOverAvatar())
         {
-            IsDragging     = true;
-            _dragStartPos  = avatarRoot.position;
-            _dragOffset    = avatarRoot.position - CursorWorldPos();
+            IsDragging       = true;
+            _dragStartPos    = avatarRoot.position;
+            _dragOffset      = avatarRoot.position - CursorWorldPos();
+            _dragBaseRot     = avatarRoot.rotation;
+            _prevCursorWorld = CursorWorldPos();
         }
 
         if (justReleased && IsDragging)
@@ -89,10 +105,51 @@ public class AvatarDrag : MonoBehaviour
 
             if (Vector3.Distance(avatarRoot.position, _dragStartPos) < 0.05f)
                 HandlePoke();
+
+            _holdTimer         = 0f;
+            _holdReactionFired = false;
+            // let _leanX lerp back to 0 naturally — no hard reset
         }
 
         if (!buttonDown)    IsDragging = false;
         if (IsDragging && buttonDown) avatarRoot.position = CursorWorldPos() + _dragOffset;
+
+        UpdateHoldTimer(buttonDown);
+        UpdateRagdoll();
+    }
+
+    void UpdateHoldTimer(bool buttonDown)
+    {
+        if (!IsDragging || !buttonDown) return;
+        _holdTimer += Time.deltaTime;
+        if (!_holdReactionFired && _holdTimer >= holdTime)
+        {
+            _holdReactionFired = true;
+            PlayerPrefs.SetInt("heldTooLong", 1);
+            PlayerPrefs.Save();
+            _avatarSpeech?.TriggerHold();
+        }
+    }
+
+    void UpdateRagdoll()
+    {
+        if (_isSpinning) return;
+
+        float targetX = 0f;
+
+        if (IsDragging)
+        {
+            Vector3 cursor = CursorWorldPos();
+            float   dt     = Mathf.Max(Time.deltaTime, 0.001f);
+            float   vx     = (cursor.x - _prevCursorWorld.x) / dt;
+            targetX          = Mathf.Clamp(vx * leanVelScale, -leanMaxAngle, leanMaxAngle);
+            _prevCursorWorld = cursor;
+        }
+
+        _leanX = Mathf.LerpAngle(_leanX, targetX, Time.deltaTime * leanSmooth);
+
+        if (Mathf.Abs(_leanX) > 0.05f)
+            avatarRoot.rotation = _dragBaseRot * Quaternion.Euler(0f, 0f, _leanX);
     }
 
     void UpdateSpinHotkey()

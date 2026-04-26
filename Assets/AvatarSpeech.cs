@@ -219,6 +219,19 @@ public class AvatarSpeech : MonoBehaviour
         "I remember what you did", "don't even think about it",
         "we need to talk about yesterday", "still not over it", "behave yourself today",
     };
+    public string[] holdPhrases =
+    {
+        "okay you can put me down now", "I'm not a backpack",
+        "where are we going??", "hey! put me down", "this is kidnapping",
+        "I did not consent to this", "hello?? the floor exists",
+        "I'm getting dizzy up here", "put me DOWN",
+    };
+    public string[] holdRememberedPhrases =
+    {
+        "please don't pick me up again", "I remember the incident",
+        "still not over being carried", "last time was traumatic",
+        "keep your hands to yourself",
+    };
 
     [Header("History Reactions")]
     public string[] streakChillPhrases =
@@ -298,6 +311,7 @@ public class AvatarSpeech : MonoBehaviour
     float         _musicStartTimer;
     bool          _beenAWhile;
     bool          _remembersPoked;
+    bool          _remembersHeld;
     bool          _prevMuted;
     float         _prevVolume      = -1f;
     float         _volumeSnapshot  = -1f;
@@ -338,7 +352,8 @@ public class AvatarSpeech : MonoBehaviour
             _beenAWhile = (System.DateTime.Now - last).TotalDays >= beenAWhileDays;
 
         PlayerPrefs.SetString("lastLaunchDate", System.DateTime.Now.ToString("yyyy-MM-dd"));
-        _remembersPoked = PlayerPrefs.GetInt("pokedMad", 0) == 1;
+        _remembersPoked = PlayerPrefs.GetInt("pokedMad",    0) == 1;
+        _remembersHeld  = PlayerPrefs.GetInt("heldTooLong", 0) == 1;
         PlayerPrefs.Save();
     }
 
@@ -513,7 +528,8 @@ public class AvatarSpeech : MonoBehaviour
         int hour = now.Hour;
 
         if (_beenAWhile)     { _beenAWhile = false; return beenAWhilePhrases; }
-        if (_remembersPoked) { _remembersPoked = false; PlayerPrefs.DeleteKey("pokedMad"); PlayerPrefs.Save(); return pokeRememberedPhrases; }
+        if (_remembersPoked) { _remembersPoked = false; PlayerPrefs.DeleteKey("pokedMad");    PlayerPrefs.Save(); return pokeRememberedPhrases; }
+        if (_remembersHeld)  { _remembersHeld  = false; PlayerPrefs.DeleteKey("heldTooLong"); PlayerPrefs.Save(); return holdRememberedPhrases; }
 
         string[] holiday = GetHolidayPhrases(now);
         if (holiday != null) return holiday;
@@ -734,6 +750,19 @@ public class AvatarSpeech : MonoBehaviour
         if (_isShowing) HideBubble();
 
         _bubble.Show(config.bubbleType, PickPhrase(pool));
+        _bubble.transform.localScale = Vector3.one * bubbleScale;
+
+        _showTimer = showDuration;
+        _cooldown  = Random.Range(minCooldown, maxCooldown);
+        _isShowing = true;
+    }
+
+    public void TriggerHold()
+    {
+        if (!_bubble || !enabled || holdPhrases.Length == 0) return;
+        if (_isShowing) HideBubble();
+
+        _bubble.Show(BubbleType.Normal, PickPhrase(holdPhrases));
         _bubble.transform.localScale = Vector3.one * bubbleScale;
 
         _showTimer = showDuration;

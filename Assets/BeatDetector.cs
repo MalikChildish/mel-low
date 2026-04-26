@@ -27,7 +27,7 @@ public class BeatDetector : MonoBehaviour
     [Range(0f, 1f)]      public float vibeInfluence         = 0.5f;
 
     [Header("Debug")]
-    public bool showDebug     = true;
+    public bool showDebug     = false;
     public bool reactToMusic  = true;
 
     // Public readable state
@@ -467,7 +467,7 @@ public class BeatDetector : MonoBehaviour
             return;
         }
 
-        if (!reactToMusic)
+        if (!reactToMusic || AvatarDrag.IsDragging)
         {
             for (int i = 0; i < boneChain.Length; i++)
                 if (boneChain[i].bone)

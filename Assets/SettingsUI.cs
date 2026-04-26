@@ -54,6 +54,7 @@ public class SettingsUI : MonoBehaviour
     [SerializeField] MoodHistory _moodHistory;
     [SerializeField] Button      _clearHistoryButton;
 
+
     [Header("Timing")]
     [Range(0.1f, 2f)] public float hoverDelay   = 0.8f;
     [Range(0.5f, 3f)] public float fadeOutDelay = 1.5f;
@@ -69,9 +70,10 @@ public class SettingsUI : MonoBehaviour
     struct RECT { public int left, top, right, bottom; }
 
     public static bool PanelOpen { get; private set; }
-    float _hoverTimer;
-    float _outTimer;
-    bool  _cogVisible;
+    float      _hoverTimer;
+    float      _outTimer;
+    bool       _cogVisible;
+    GameObject _backdrop;
     readonly List<RECT> _monitors       = new List<RECT>();
     MonitorEnumProc     _monitorEnumProc;
 
@@ -91,6 +93,7 @@ public class SettingsUI : MonoBehaviour
         // Button listeners
         _cogButton?.onClick.AddListener(TogglePanel);
         _closeButton?.onClick.AddListener(TogglePanel);
+        CreateBackdrop();
         _reactButton?.onClick.AddListener(ToggleReactToMusic);
         _chatBubbleButton?.onClick.AddListener(ToggleChatBubble);
         _clearHistoryButton?.onClick.AddListener(ClearMoodHistory);
@@ -185,11 +188,33 @@ public class SettingsUI : MonoBehaviour
         g.blocksRaycasts  = g.alpha > 0.5f;
     }
 
+    // ── Backdrop ─────────────────────────────────────────────────────────────
+
+    void CreateBackdrop()
+    {
+        if (!_panelRect) return;
+        var go = new GameObject("Backdrop", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(_panelRect.parent, false);
+        go.transform.SetSiblingIndex(_panelRect.GetSiblingIndex());
+
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        go.GetComponent<Image>().color = Color.clear;
+        go.GetComponent<Button>().onClick.AddListener(TogglePanel);
+        go.SetActive(false);
+        _backdrop = go;
+    }
+
     // ── Panel toggle ─────────────────────────────────────────────────────────
 
     void TogglePanel()
     {
         PanelOpen = !PanelOpen;
+        if (_backdrop) _backdrop.SetActive(PanelOpen);
         if (!PanelOpen) return;
 
         ShowCog();
@@ -253,6 +278,7 @@ public class SettingsUI : MonoBehaviour
     // ── Mood History ─────────────────────────────────────────────────────────
 
     void ClearMoodHistory() => _moodHistory?.ClearHistory();
+
 
     // ── Hit testing (used by TransparentWindow) ───────────────────────────────
 

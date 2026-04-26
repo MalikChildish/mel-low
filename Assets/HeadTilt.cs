@@ -14,6 +14,8 @@ public class HeadTilt : MonoBehaviour
     Quaternion _initialRot;
     Quaternion _mouseRot;
     bool       _initialized;
+    float      _nodBlend    = 1f;
+    bool       _wasDragging;
 
     void Update()
     {
@@ -43,8 +45,11 @@ public class HeadTilt : MonoBehaviour
         Quaternion mouseTarget = _initialRot * Quaternion.Euler(nod, turn, tilt);
         _mouseRot = Quaternion.Slerp(_mouseRot, mouseTarget, Time.deltaTime * smoothSpeed);
 
-        float beatNod  = beatDetector ? beatDetector.HeadNodAngle * beatNodScale : 0f;
-        float beatTurn = beatDetector ? beatDetector.HeadNodTurn  * beatNodScale : 0f;
+        if (AvatarDrag.IsDragging && !_wasDragging) _nodBlend = 0f;
+        else if (!AvatarDrag.IsDragging)            _nodBlend = Mathf.MoveTowards(_nodBlend, 1f, Time.deltaTime * 1.2f);
+        _wasDragging = AvatarDrag.IsDragging;
+        float beatNod  = beatDetector ? beatDetector.HeadNodAngle * beatNodScale * _nodBlend : 0f;
+        float beatTurn = beatDetector ? beatDetector.HeadNodTurn  * beatNodScale * _nodBlend : 0f;
         headBone.localRotation = _mouseRot * Quaternion.Euler(beatNod, beatTurn, -beatTurn * 0.5f);
     }
 }
