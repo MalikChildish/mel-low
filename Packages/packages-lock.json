@@ -1,12 +1,5 @@
 {
   "dependencies": {
-    "club.screenshake.desktopia": {
-      "version": "https://github.com/screenshakes/Desktopia.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "beeb170714d105b64a763aa3b1920763a1b03bfb"
-    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,

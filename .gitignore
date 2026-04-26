@@ -79,3 +79,17 @@ crashlytics-build.properties
 # Third-party Asset Store assets (not redistributable under Standard Unity Asset Store EULA)
 /[Aa]ssets/Speech Bubble/
 /[Aa]ssets/Speech Bubble.meta
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code memory
+.claude/
