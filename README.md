@@ -5,6 +5,7 @@ A lightweight Windows desktop overlay avatar that reacts to your music in real t
 Built with Unity 6. **100% offline — no internet, no accounts, no data sent anywhere.**
 
 **[Download on itch.io](https://malikchildish.itch.io/mel-low)**
+**[First Devlog](https://youtu.be/hJzKzX8-q9w)**
 
 ---
 
